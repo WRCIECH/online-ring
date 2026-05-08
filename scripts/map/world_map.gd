@@ -100,6 +100,7 @@ var _info_desc:     Label
 var _info_enter:    Button
 
 var _level_up_screen: LevelUpScreen
+var _equip_screen:    EquipScreen
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -230,7 +231,11 @@ func _build_locations() -> void:
 # ── Level-up screen ───────────────────────────────────────────────────────────
 
 func _build_level_up_screen() -> void:
+	_equip_screen = EquipScreen.new()
+	add_child(_equip_screen)
+
 	_level_up_screen = LevelUpScreen.new()
+	_level_up_screen.equip_screen = _equip_screen
 	add_child(_level_up_screen)
 
 # ── Callbacks ─────────────────────────────────────────────────────────────────

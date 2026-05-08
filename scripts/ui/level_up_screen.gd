@@ -22,6 +22,7 @@ var _hp_preview:   Label
 var _fp_preview:   Label
 var _sta_preview:  Label
 var _confirm_btn:  Button
+var equip_screen:  EquipScreen  # set by WorldMap after construction
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,15 @@ func _build_ui() -> void:
 	close_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close_btn.pressed.connect(hide)
 	btn_row.add_child(close_btn)
+
+	var equip_btn := Button.new()
+	equip_btn.text = "Equipment"
+	equip_btn.pressed.connect(_on_equip_btn_pressed)
+	vbox.add_child(equip_btn)
+
+func _on_equip_btn_pressed() -> void:
+	if equip_screen != null:
+		equip_screen.show_screen()
 
 func _build_stat_row(parent: VBoxContainer, stat: String) -> void:
 	var row := HBoxContainer.new()

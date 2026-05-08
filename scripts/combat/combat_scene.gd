@@ -306,19 +306,46 @@ func _handle_victory() -> void:
 	_timer_bar.hide()
 	_clear_options()
 	_phase_lbl.text = "VICTORY"
+
+	var enemy_id: String = GameManager.pending_encounter.get("enemy_id", "")
+	var is_first_kill: bool = not GameManager.defeated_enemies.has(enemy_id)
+
 	var runes: int = _enemy.get("rune_reward", 0)
 	GameManager.add_runes(runes)
-	if not GameManager.defeated_enemies.has(GameManager.pending_encounter.get("enemy_id", "")):
-		GameManager.defeated_enemies.append(GameManager.pending_encounter.get("enemy_id", ""))
+	_log_add("Victory! +%d runes." % runes, Color(1.0, 0.85, 0.2))
+
+	if is_first_kill and not enemy_id.is_empty():
+		GameManager.defeated_enemies.append(enemy_id)
+
 	if _enemy.get("is_remembrance", false):
 		var area: String = _enemy.get("unlocks_area", "")
 		if not area.is_empty() and not GameManager.unlocked_areas.has(area):
 			GameManager.unlocked_areas.append(area)
-			_log_add("New area unlocked: %s!" % area, Color(0.9, 0.75, 0.2))
+			_log_add("New area unlocked!", Color(0.9, 0.75, 0.2))
+
+	var drops := _resolve_drops(is_first_kill)
+	if drops.is_empty():
+		_log_add("No items dropped.", Color(0.5, 0.5, 0.5))
+	else:
+		for weapon_id in drops:
+			var w: Dictionary = WeaponDB.WEAPONS.get(weapon_id, {})
+			_log_add("Weapon obtained: %s" % w.get("name", weapon_id), Color(0.4, 0.85, 0.95))
+
 	_sync_player_stats()
 	SaveManager.save_game()
-	_log_add("Victory! +%d runes." % runes, Color(1.0, 0.85, 0.2))
 	_btn("Return to Map", _go_to_map, false)
+
+func _resolve_drops(is_first_kill: bool) -> Array:
+	var gained: Array = []
+	for drop in _enemy.get("drops", []):
+		var chance: float = drop.get("first_kill_chance", 0.0) if is_first_kill \
+							else drop.get("repeat_chance", 0.0)
+		if chance > 0.0 and randf() <= chance:
+			var weapon_id: String = drop.get("id", "")
+			if not weapon_id.is_empty() and not GameManager.weapons.has(weapon_id):
+				GameManager.weapons.append(weapon_id)
+				gained.append(weapon_id)
+	return gained
 
 func _handle_defeat() -> void:
 	_timer_bar.hide()

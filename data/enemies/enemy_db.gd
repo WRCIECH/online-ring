@@ -1,5 +1,9 @@
 class_name EnemyDB
 
+# "drops" entries: first_kill_chance = probability on first defeat,
+#                  repeat_chance     = probability on subsequent defeats.
+# Weapons already owned are skipped silently.
+
 const ENEMIES := {
 	"procrastination_mob": {
 		"name": "Procrastination Mob",
@@ -9,6 +13,7 @@ const ENEMIES := {
 		"max_poise": 20,
 		"rune_reward": 50,
 		"is_boss": false,
+		"drops": [],
 		"moveset": [
 			{
 				"id": "mindless_scroll",
@@ -32,6 +37,10 @@ const ENEMIES := {
 		"max_poise": 40,
 		"rune_reward": 150,
 		"is_boss": true,
+		"drops": [
+			# Dagger: reward for learning to fight back fast and sharp
+			{"id": "dagger", "first_kill_chance": 1.0, "repeat_chance": 0.0},
+		],
 		"moveset": [
 			{
 				"id": "public_criticism",
@@ -61,6 +70,10 @@ const ENEMIES := {
 		"max_poise": 50,
 		"rune_reward": 200,
 		"is_boss": true,
+		"drops": [
+			# Greatsword: reward for pushing through the hardest creative block
+			{"id": "greatsword", "first_kill_chance": 1.0, "repeat_chance": 0.0},
+		],
 		"moveset": [
 			{
 				"id": "infinite_loop",
@@ -92,6 +105,7 @@ const ENEMIES := {
 		"is_boss": true,
 		"is_remembrance": true,
 		"unlocks_area": "second_area",
+		"drops": [],  # area unlock is the reward; Remembrance weapon added in future phase
 		"moveset": [
 			{
 				"id": "revision_spiral",
