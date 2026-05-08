@@ -10,4 +10,5 @@ const COLOR_ENEMY_AREA         := Color(0.65, 0.12, 0.10)
 const COLOR_REMEMBRANCE        := Color(0.80, 0.20, 0.00)
 const COLOR_LOCKED_NODE        := Color(0.22, 0.22, 0.25)
 const COLOR_CURRENT_LOCATION   := Color(1.00, 1.00, 0.45)
+const COLOR_MERCHANT           := Color(0.18, 0.68, 0.38)
 const COLOR_HOVER_AMOUNT       := 0.25

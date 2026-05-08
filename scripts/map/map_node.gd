@@ -22,7 +22,8 @@ func _draw() -> void:
 	var is_unlocked: bool = GameManager.unlocked_areas.has(location_data.get("area", ""))
 	var is_current: bool  = GameManager.current_location == location_id
 	var is_grace: bool    = location_data.get("is_site_of_grace", false)
-	var is_boss: bool     = location_data.get("is_remembrance", false)
+	var is_boss: bool     = location_data.get("is_remembrance",   false)
+	var is_merchant: bool = location_data.get("is_merchant",      false)
 
 	var enemy_id: String  = location_data.get("enemy_id", "")
 	var is_defeated: bool = not enemy_id.is_empty() and GameManager.defeated_enemies.has(enemy_id)
@@ -35,6 +36,8 @@ func _draw() -> void:
 		base_color = GameConstants.COLOR_LOCKED_NODE
 	elif is_grace:
 		base_color = GameConstants.COLOR_SITE_OF_GRACE
+	elif is_merchant:
+		base_color = GameConstants.COLOR_MERCHANT
 	elif is_boss:
 		base_color = GameConstants.COLOR_REMEMBRANCE
 	else:
@@ -69,6 +72,9 @@ func _draw() -> void:
 		var r: float = RADIUS * 0.38
 		draw_line(Vector2(-r, -r), Vector2(r,  r), Color(1, 1, 1, 0.45), 2.0)
 		draw_line(Vector2( r, -r), Vector2(-r, r), Color(1, 1, 1, 0.45), 2.0)
+	elif is_merchant:
+		# Gold coin dot
+		draw_circle(Vector2.ZERO, RADIUS * 0.38, Color(0.95, 0.82, 0.22))
 	else:
 		draw_circle(Vector2.ZERO, RADIUS * 0.35, Color(1, 1, 1, 0.22))
 

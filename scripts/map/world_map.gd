@@ -17,6 +17,18 @@ const MAP_DATA := {
 		"is_boss":         false,
 		"is_remembrance":  false,
 	},
+	"merchants_post": {
+		"name":            "Merchant's Post",
+		"description":     "A wandering merchant camps here daily. Stock changes at midnight. Good place to spend runes on weapons you haven't found yet.",
+		"position":        Vector2(265, 510),
+		"is_site_of_grace": false,
+		"connections":     ["blank_canvas", "open_feed"],
+		"area":            "starting_area",
+		"enemy_id":        "",
+		"is_boss":         false,
+		"is_remembrance":  false,
+		"is_merchant":     true,
+	},
 	"open_feed": {
 		"name":            "The Open Feed",
 		"description":     "Endless distractions roam freely here. Procrastination Mobs patrol every path. Easy to enter — hard to leave.",
@@ -102,6 +114,7 @@ var _info_enter:    Button
 var _level_up_screen:  LevelUpScreen
 var _equip_screen:     EquipScreen
 var _settings_screen:  SettingsScreen
+var _merchant_screen:  MerchantScreen
 var _ui_layer:         CanvasLayer
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -115,6 +128,7 @@ func _ready() -> void:
 	_build_locations()
 	_build_level_up_screen()
 	_build_settings_screen()
+	_build_merchant_screen()
 	_refresh_ui()
 
 	get_viewport().size_changed.connect(queue_redraw)
@@ -257,6 +271,7 @@ func _build_legend(ui: CanvasLayer) -> void:
 	vbox.add_child(title)
 
 	_legend_entry(vbox, "●  Site of Grace",      GameConstants.COLOR_SITE_OF_GRACE)
+	_legend_entry(vbox, "●  Merchant",           GameConstants.COLOR_MERCHANT)
 	_legend_entry(vbox, "●  Enemy area",          GameConstants.COLOR_ENEMY_AREA)
 	_legend_entry(vbox, "●  Remembrance Boss",    GameConstants.COLOR_REMEMBRANCE)
 	_legend_entry(vbox, "●  Locked area",         GameConstants.COLOR_LOCKED_NODE)
@@ -299,6 +314,10 @@ func _build_settings_screen() -> void:
 	_settings_screen = SettingsScreen.new()
 	add_child(_settings_screen)
 
+func _build_merchant_screen() -> void:
+	_merchant_screen = MerchantScreen.new()
+	add_child(_merchant_screen)
+
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
 func _on_node_clicked(id: String) -> void:
@@ -309,7 +328,12 @@ func _on_node_clicked(id: String) -> void:
 	_selected_id = id
 	_info_name.text = data.name
 	_info_desc.text = data.description
-	_info_enter.text = "Rest at Site of Grace" if data.is_site_of_grace else "Enter Location"
+	if data.is_site_of_grace:
+		_info_enter.text = "Rest at Site of Grace"
+	elif data.get("is_merchant", false):
+		_info_enter.text = "Browse Wares"
+	else:
+		_info_enter.text = "Enter Location"
 	_info_panel.visible = true
 
 func _on_enter_pressed() -> void:
@@ -323,6 +347,10 @@ func _on_enter_pressed() -> void:
 		_info_panel.visible = false
 		SoundManager.play(SoundManager.Sound.SITE_OF_GRACE)
 		_level_up_screen.show_screen()
+	elif data.get("is_merchant", false):
+		_info_panel.visible = false
+		SoundManager.play(SoundManager.Sound.BUTTON_CLICK)
+		_merchant_screen.show_screen()
 	else:
 		var enemy_id: String = data.get("enemy_id", "")
 		if enemy_id.is_empty():
