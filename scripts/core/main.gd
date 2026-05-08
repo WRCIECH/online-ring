@@ -1,5 +1,5 @@
 extends Node
 
 func _ready() -> void:
-	SaveManager.load_game()
-	get_tree().change_scene_to_file.call_deferred("res://scenes/map/world_map.tscn")
+	# Title screen handles save loading; go there first on every launch.
+	get_tree().change_scene_to_file.call_deferred("res://scenes/ui/title_screen.tscn")
