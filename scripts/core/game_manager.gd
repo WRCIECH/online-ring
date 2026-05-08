@@ -48,6 +48,10 @@ var pending_encounter: Dictionary = {}
 # Recovers when player confirms faith honestly. Affects FAI incantation damage.
 var faith_integrity: int = 100
 
+# ── World map ─────────────────────────────────────────────────────────────────
+# 0 = no seed yet (terrain generated on first WorldMap load, then persisted).
+var map_seed: int = 0
+
 # ── Signals ─────────────────────────────────────────────────────────────────
 signal stats_changed
 signal hp_changed(new_hp: int, max_hp: int)
@@ -181,6 +185,7 @@ func reset() -> void:
 	items             = []
 	pending_encounter = {}
 	faith_integrity   = 100
+	map_seed          = 0   # triggers new terrain on next WorldMap load
 	recalculate_derived_stats()
 	current_hp      = max_hp
 	current_fp      = max_fp
@@ -210,6 +215,7 @@ func get_save_data() -> Dictionary:
 		"weapons": weapons.duplicate(),
 		"items": items.duplicate(),
 		"faith_integrity": faith_integrity,
+		"map_seed":        map_seed,
 	}
 
 func load_save_data(data: Dictionary) -> void:
@@ -230,6 +236,7 @@ func load_save_data(data: Dictionary) -> void:
 	weapons = data.get("weapons", [])
 	items = data.get("items", [])
 	faith_integrity = data.get("faith_integrity", 100)
+	map_seed        = data.get("map_seed", 0)
 	recalculate_derived_stats()
 	current_hp = data.get("current_hp", max_hp)
 	current_fp = data.get("current_fp", max_fp)

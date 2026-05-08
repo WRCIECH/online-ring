@@ -118,6 +118,7 @@ var _settings_screen:  SettingsScreen
 var _merchant_screen:  MerchantScreen
 var _ui_layer:         CanvasLayer
 var _camera:           Camera2D
+var _terrain_texture:  ImageTexture
 
 # ── Pan / zoom state ──────────────────────────────────────────────────────────
 var _panning:          bool    = false
@@ -142,6 +143,7 @@ func _ready() -> void:
 	_camera.position = Vector2(500, 380)  # centre view on starting area
 	add_child(_camera)
 
+	_generate_terrain()
 	_build_ui_layer()
 	_build_locations()
 	_build_level_up_screen()
@@ -181,9 +183,82 @@ func _input(event: InputEvent) -> void:
 func _set_zoom(z: float) -> void:
 	_camera.zoom = Vector2.ONE * clampf(z, ZOOM_MIN, ZOOM_MAX)
 
+# ── Terrain generation ────────────────────────────────────────────────────────
+
+func _generate_terrain() -> void:
+	if GameManager.map_seed == 0:
+		GameManager.map_seed = randi()
+		SaveManager.save_game()
+
+	const GEN_W := 400
+	const GEN_H := 300
+
+	# Noise layer 1: elevation (large landmass shapes)
+	var elev := FastNoiseLite.new()
+	elev.seed              = GameManager.map_seed
+	elev.frequency         = 0.0025
+	elev.fractal_octaves   = 6
+	elev.fractal_lacunarity = 2.0
+	elev.fractal_gain      = 0.5
+
+	# Noise layer 2: moisture (forest vs plains variation)
+	var moist := FastNoiseLite.new()
+	moist.seed             = GameManager.map_seed + 1337
+	moist.frequency        = 0.008
+	moist.fractal_octaves  = 3
+
+	var img := Image.create(GEN_W, GEN_H, false, Image.FORMAT_RGB8)
+
+	for py in range(GEN_H):
+		for px in range(GEN_W):
+			# Map pixel to world coordinates covered by the terrain rect
+			var wx := -200.0 + (float(px) / GEN_W) * 1600.0
+			var wy := -200.0 + (float(py) / GEN_H) * 1200.0
+
+			var e: float = elev.get_noise_2d(wx, wy)
+			var m: float = moist.get_noise_2d(wx, wy)
+
+			# Vignette: fade to dark void near texture edges
+			var cx := float(px) / GEN_W * 2.0 - 1.0   # -1 to 1
+			var cy := float(py) / GEN_H * 2.0 - 1.0
+			var dist := sqrt(cx * cx + cy * cy)
+			var vig := 1.0 - smoothstep(0.55, 1.05, dist)
+
+			var col := _terrain_color(e, m)
+			img.set_pixel(px, py, Color(col.r * vig, col.g * vig, col.b * vig))
+
+	_terrain_texture = ImageTexture.create_from_image(img)
+	texture_filter   = CanvasItem.TEXTURE_FILTER_LINEAR
+	queue_redraw()
+
+func _terrain_color(e: float, m: float) -> Color:
+	var d := m * 0.04   # subtle intra-biome detail variation
+
+	if e < -0.30:
+		return Color(0.04 + d, 0.09,       0.26 + d)   # deep ocean
+	elif e < -0.05:
+		return Color(0.07 + d, 0.15,       0.38 + d)   # ocean
+	elif e < 0.03:
+		return Color(0.30 + d, 0.26,       0.17)        # coast / sand
+	elif e < 0.25:
+		if m > 0.15:
+			return Color(0.07,       0.17 + d, 0.08)    # forest
+		else:
+			return Color(0.14 + d,   0.26,     0.13)    # plains
+	elif e < 0.52:
+		return Color(0.23 + d,   0.19,     0.13 + d)    # hills
+	elif e < 0.78:
+		return Color(0.29 + d,   0.26,     0.22 + d)    # mountains
+	else:
+		return Color(0.44,       0.42 + d, 0.42)        # snow peaks
+
 func _draw() -> void:
-	# Large rect — background must cover any camera position without gaps
-	draw_rect(Rect2(Vector2(-10000, -10000), Vector2(22000, 22000)), GameConstants.COLOR_MAP_BG)
+	# 1. Dark void — covers any camera position
+	draw_rect(Rect2(Vector2(-10000, -10000), Vector2(22000, 22000)), Color(0.04, 0.03, 0.05))
+
+	# 2. Terrain texture (world rect: -200,-200 to 1400,1000)
+	if _terrain_texture:
+		draw_texture_rect(_terrain_texture, Rect2(Vector2(-200, -200), Vector2(1600, 1200)), false)
 
 	var drawn: Dictionary = {}
 	for id in MAP_DATA:
