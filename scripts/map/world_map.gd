@@ -117,6 +117,12 @@ var _equip_screen:     EquipScreen
 var _settings_screen:  SettingsScreen
 var _merchant_screen:  MerchantScreen
 var _ui_layer:         CanvasLayer
+var _camera:           Camera2D
+
+# ── Pan state ─────────────────────────────────────────────────────────────────
+var _panning:          bool    = false
+var _pan_start_mouse:  Vector2 = Vector2.ZERO
+var _pan_start_camera: Vector2 = Vector2.ZERO
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -124,6 +130,13 @@ func _ready() -> void:
 	if GameManager.current_location.is_empty():
 		GameManager.current_location  = "blank_canvas"
 		GameManager.last_site_of_grace = "blank_canvas"
+	# Starting location is always discovered
+	if not GameManager.discovered_locations.has(GameManager.current_location):
+		GameManager.discovered_locations.append(GameManager.current_location)
+
+	_camera = Camera2D.new()
+	_camera.position = Vector2(500, 380)  # centre view on starting area
+	add_child(_camera)
 
 	_build_ui_layer()
 	_build_locations()
@@ -144,9 +157,22 @@ func _ready() -> void:
 
 # ── Drawing (background + connection lines) ───────────────────────────────────
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.pressed:
+			_panning = true
+			_pan_start_mouse  = event.position
+			_pan_start_camera = _camera.position
+		else:
+			_panning = false
+	elif event is InputEventMouseMotion and _panning:
+		# Drag right → camera moves right → reveals content to the right
+		_camera.position = _pan_start_camera + (event.position - _pan_start_mouse)
+		queue_redraw()
+
 func _draw() -> void:
-	var vp := get_viewport_rect().size
-	draw_rect(Rect2(Vector2.ZERO, vp), GameConstants.COLOR_MAP_BG)
+	# Large rect — background must cover any camera position without gaps
+	draw_rect(Rect2(Vector2(-10000, -10000), Vector2(22000, 22000)), GameConstants.COLOR_MAP_BG)
 
 	var drawn: Dictionary = {}
 	for id in MAP_DATA:
@@ -344,6 +370,17 @@ func _on_node_clicked(id: String) -> void:
 		_info_panel.visible = true
 		return
 
+	# Adjacency / discovery gate
+	if not _is_accessible(id):
+		_selected_id = ""
+		_info_name.text = data.name
+		_info_desc.text = "Not reachable yet — travel to an adjacent location first."
+		_info_moveset.visible = false
+		_info_enter.text = "Not Reachable"
+		_info_enter.disabled = true
+		_info_panel.visible = true
+		return
+
 	_selected_id = id
 	_info_name.text = data.name
 	_info_desc.text = data.description
@@ -369,6 +406,20 @@ func _on_node_clicked(id: String) -> void:
 		_info_enter.text = "Enter Location"
 	_info_panel.visible = true
 
+func _is_accessible(id: String) -> bool:
+	if GameManager.discovered_locations.has(id):
+		return true
+	var current := GameManager.current_location
+	if current.is_empty():
+		return true
+	# Adjacent if listed in current location's connections
+	if MAP_DATA.get(current, {}).get("connections", []).has(id):
+		return true
+	# Adjacent if current location is listed in the target's connections
+	if MAP_DATA.get(id, {}).get("connections", []).has(current):
+		return true
+	return false
+
 func _area_blocker_name(area: String) -> String:
 	for loc_id in MAP_DATA:
 		var loc: Dictionary = MAP_DATA[loc_id]
@@ -381,6 +432,9 @@ func _on_enter_pressed() -> void:
 		return
 	var data: Dictionary = MAP_DATA[_selected_id]
 	GameManager.current_location = _selected_id
+	if not GameManager.discovered_locations.has(_selected_id):
+		GameManager.discovered_locations.append(_selected_id)
+		_refresh_all_nodes()
 
 	if data.is_site_of_grace:
 		GameManager.last_site_of_grace = _selected_id

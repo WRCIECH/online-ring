@@ -16,6 +16,18 @@ var _hovered: bool = false
 func refresh_state() -> void:
 	queue_redraw()
 
+func _is_accessible() -> bool:
+	if GameManager.discovered_locations.has(location_id):
+		return true
+	var current := GameManager.current_location
+	if current.is_empty():
+		return true
+	if WorldMap.MAP_DATA.get(current, {}).get("connections", []).has(location_id):
+		return true
+	if location_data.get("connections", []).has(current):
+		return true
+	return false
+
 # ── Drawing ───────────────────────────────────────────────────────────────────
 
 func _draw() -> void:
@@ -46,7 +58,14 @@ func _draw() -> void:
 	if is_defeated and not is_grace:
 		base_color = base_color.darkened(0.35)
 
-	if _hovered and is_unlocked:
+	var accessible: bool = true
+	if is_unlocked:
+		accessible = _is_accessible()
+		if not accessible:
+			base_color = base_color.darkened(0.50)
+			base_color.a = 0.40
+
+	if _hovered and is_unlocked and accessible:
 		base_color = base_color.lightened(GameConstants.COLOR_HOVER_AMOUNT)
 
 	# ── Rings (outermost first) ───────────────────────────────────────────────
