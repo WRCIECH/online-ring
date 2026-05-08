@@ -13,8 +13,8 @@ const ER_FP  := Color(0.12, 0.27, 0.70)   # royal blue
 const ER_STA := Color(0.28, 0.62, 0.18)   # medium green
 
 # Ring-menu geometry (screen-space, 1200×800 reference)
-const RING_CENTER := Vector2(600, 445)
-const RING_RADIUS := 168.0
+const RING_CENTER := Vector2(600, 490)
+const RING_RADIUS := 200.0
 const RING_BTN_W  := 158.0
 const RING_BTN_H  := 54.0
 
@@ -56,9 +56,6 @@ var _ring_container:  Control      # parent for ring-menu buttons
 var _player_hp_bar:   ProgressBar
 var _player_sta_bar:  ProgressBar
 var _player_fp_bar:   ProgressBar
-var _player_hp_lbl:   Label
-var _player_sta_lbl:  Label
-var _player_fp_lbl:   Label
 
 var _task_layer:       CanvasLayer
 var _task_move_lbl:    Label
@@ -515,13 +512,10 @@ func _update_enemy_bars() -> void:
 func _update_player_bars() -> void:
 	_player_hp_bar.max_value  = GameManager.max_hp
 	_player_hp_bar.value      = _player_hp
-	_player_sta_bar.max_value = GameManager.max_stamina
-	_player_sta_bar.value     = _player_stamina
 	_player_fp_bar.max_value  = GameManager.max_fp
 	_player_fp_bar.value      = _player_fp
-	_player_hp_lbl.text  = "%d / %d"  % [_player_hp,      GameManager.max_hp]
-	_player_fp_lbl.text  = "%d / %d"  % [_player_fp,       GameManager.max_fp]
-	_player_sta_lbl.text = "%d / %d"  % [_player_stamina,  GameManager.max_stamina]
+	_player_sta_bar.max_value = GameManager.max_stamina
+	_player_sta_bar.value     = _player_stamina
 
 func _log_add(text: String, color: Color = Color.WHITE) -> void:
 	_log.append_text("[color=#%s]%s[/color]\n" % [color.to_html(false), text])
@@ -569,136 +563,89 @@ func _build_ui() -> void:
 	add_child(bg)
 
 	_build_player_stats()
-	_build_enemy_section()
-	_build_ring()
+	_build_ring()   # enemy info lives inside the ring
 	_build_log()
 	_build_task_popup()
 
-# ── Player stats — upper left (HP / FP / STA with Elden Ring colours) ─────────
+# ── Player stats — upper left (colour-coded strips only, no text) ─────────────
 
 func _build_player_stats() -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	panel.offset_right  = 288
-	panel.offset_bottom = 108
+	panel.offset_right  = 260
+	panel.offset_bottom = 86
 	panel.offset_left   = 12
 	panel.offset_top    = 12
 	add_child(panel)
 
-	var m := _margin_container(panel, 10)
+	var m := _margin_container(panel, 8)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 7)
+	vbox.add_theme_constant_override("separation", 6)
 	m.add_child(vbox)
 
-	var hp_row  := _er_stat_row("HP",  ER_HP)
-	_player_hp_bar  = hp_row[0];  _player_hp_lbl  = hp_row[1]
-	vbox.add_child(hp_row[2])
+	_player_hp_bar  = _thick_bar(ER_HP)
+	_player_fp_bar  = _thick_bar(ER_FP)
+	_player_sta_bar = _thick_bar(ER_STA)
+	vbox.add_child(_player_hp_bar)
+	vbox.add_child(_player_fp_bar)
+	vbox.add_child(_player_sta_bar)
 
-	var fp_row  := _er_stat_row("FP",  ER_FP)
-	_player_fp_bar  = fp_row[0];  _player_fp_lbl  = fp_row[1]
-	vbox.add_child(fp_row[2])
+func _thick_bar(color: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(230, 20)
+	bar.add_theme_color_override("fill_color_modulate", color)
+	return bar
 
-	var sta_row := _er_stat_row("STA", ER_STA)
-	_player_sta_bar = sta_row[0]; _player_sta_lbl = sta_row[1]
-	vbox.add_child(sta_row[2])
-
-# Returns [ProgressBar, value_label, row_container]
-func _er_stat_row(label_text: String, color: Color) -> Array:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-
-	var name_lbl := Label.new()
-	name_lbl.text = label_text
-	name_lbl.custom_minimum_size = Vector2(34, 0)
-	name_lbl.add_theme_font_size_override("font_size", 13)
-	name_lbl.add_theme_color_override("font_color", color)
-	row.add_child(name_lbl)
-
-	var bar := _progress_bar(color)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.custom_minimum_size.y = 18
-	row.add_child(bar)
-
-	var val := Label.new()
-	val.custom_minimum_size = Vector2(80, 0)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	val.add_theme_font_size_override("font_size", 11)
-	val.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72))
-	row.add_child(val)
-
-	return [bar, val, row]
-
-# ── Enemy section — upper centre ──────────────────────────────────────────────
-
-func _build_enemy_section() -> void:
-	# Name label
-	_enemy_name_lbl = Label.new()
-	_enemy_name_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_enemy_name_lbl.offset_left   = 300
-	_enemy_name_lbl.offset_right  = -300
-	_enemy_name_lbl.offset_bottom = 30
-	_enemy_name_lbl.offset_top    = 12
-	_enemy_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_enemy_name_lbl.add_theme_font_size_override("font_size", 20)
-	add_child(_enemy_name_lbl)
-
-	# HP bar (red, centred)
-	_enemy_hp_bar = _progress_bar(ER_HP)
-	_enemy_hp_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_enemy_hp_bar.offset_left   = 425
-	_enemy_hp_bar.offset_right  = -425
-	_enemy_hp_bar.offset_top    = 38
-	_enemy_hp_bar.offset_bottom = 58
-	add_child(_enemy_hp_bar)
-
-	# Status buildup bars (below HP)
-	_status_bars_box = HBoxContainer.new()
-	_status_bars_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_status_bars_box.offset_left   = 400
-	_status_bars_box.offset_right  = -400
-	_status_bars_box.offset_top    = 62
-	_status_bars_box.offset_bottom = 78
-	_status_bars_box.add_theme_constant_override("separation", 10)
-	add_child(_status_bars_box)
-
-	# Simple enemy visual placeholder
-	_enemy_visual = ColorRect.new()
-	_enemy_visual.color = Color(0.14, 0.08, 0.08)
-	_enemy_visual.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_enemy_visual.offset_left   = 530
-	_enemy_visual.offset_right  = -530
-	_enemy_visual.offset_top    = 85
-	_enemy_visual.offset_bottom = 260
-	add_child(_enemy_visual)
-
-	# Current enemy move description (shown during enemy's turn)
-	_enemy_move_lbl = Label.new()
-	_enemy_move_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_enemy_move_lbl.offset_left   = 300
-	_enemy_move_lbl.offset_right  = -300
-	_enemy_move_lbl.offset_top    = 265
-	_enemy_move_lbl.offset_bottom = 310
-	_enemy_move_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_enemy_move_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_enemy_move_lbl.add_theme_font_size_override("font_size", 13)
-	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.9, 0.45, 0.3))
-	add_child(_enemy_move_lbl)
-
-# ── Ring menu — centre ────────────────────────────────────────────────────────
+# ── Ring menu — centre (enemy info lives here too) ────────────────────────────
 
 func _build_ring() -> void:
-	# Full-rect container, mouse-transparent — buttons positioned absolutely inside
 	_ring_container = Control.new()
 	_ring_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ring_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_ring_container)
 
+	# _phase_lbl kept as invisible node — code still writes to it harmlessly
 	_phase_lbl = Label.new()
-	_phase_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_phase_lbl.add_theme_font_size_override("font_size", 17)
-	_phase_lbl.custom_minimum_size = Vector2(300, 0)
-	_phase_lbl.position = RING_CENTER - Vector2(150, 26)
+	_phase_lbl.visible = false
 	_ring_container.add_child(_phase_lbl)
+
+	# ── Enemy visual (small placeholder, centre of ring) ──────────────────────
+	_enemy_visual = ColorRect.new()
+	_enemy_visual.color = Color(0.14, 0.08, 0.08)
+	_enemy_visual.custom_minimum_size = Vector2(100, 120)
+	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 168)
+	_ring_container.add_child(_enemy_visual)
+
+	# ── Enemy name ────────────────────────────────────────────────────────────
+	_enemy_name_lbl = Label.new()
+	_enemy_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_enemy_name_lbl.add_theme_font_size_override("font_size", 16)
+	_enemy_name_lbl.custom_minimum_size = Vector2(220, 0)
+	_enemy_name_lbl.position = Vector2(RING_CENTER.x - 110, RING_CENTER.y - 45)
+	_ring_container.add_child(_enemy_name_lbl)
+
+	# ── Enemy HP bar ──────────────────────────────────────────────────────────
+	_enemy_hp_bar = _progress_bar(ER_HP)
+	_enemy_hp_bar.custom_minimum_size = Vector2(200, 16)
+	_enemy_hp_bar.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 24)
+	_ring_container.add_child(_enemy_hp_bar)
+
+	# ── Status buildup bars ───────────────────────────────────────────────────
+	_status_bars_box = HBoxContainer.new()
+	_status_bars_box.add_theme_constant_override("separation", 10)
+	_status_bars_box.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 4)
+	_ring_container.add_child(_status_bars_box)
+
+	# ── Enemy current-move description ────────────────────────────────────────
+	_enemy_move_lbl = Label.new()
+	_enemy_move_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_enemy_move_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_enemy_move_lbl.add_theme_font_size_override("font_size", 12)
+	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.90, 0.45, 0.30))
+	_enemy_move_lbl.custom_minimum_size = Vector2(280, 0)
+	_enemy_move_lbl.position = Vector2(RING_CENTER.x - 140, RING_CENTER.y + 18)
+	_ring_container.add_child(_enemy_move_lbl)
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
@@ -706,7 +653,7 @@ func _build_log() -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	panel.offset_top    = -195
-	panel.offset_right  = 435
+	panel.offset_right  = 385
 	panel.offset_bottom = -10
 	add_child(panel)
 
@@ -836,4 +783,3 @@ func _progress_bar(color: Color) -> ProgressBar:
 	bar.custom_minimum_size.y = 14
 	bar.add_theme_color_override("fill_color_modulate", color)
 	return bar
-
