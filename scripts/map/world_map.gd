@@ -171,13 +171,16 @@ func _input(event: InputEvent) -> void:
 				if event.pressed:
 					_pan_start_mouse  = event.position
 					_pan_start_camera = _camera.position
+					DisplayServer.cursor_set_shape(DisplayServer.CURSOR_DRAG)
+				else:
+					DisplayServer.cursor_set_shape(DisplayServer.CURSOR_ARROW)
 			MOUSE_BUTTON_WHEEL_UP:
 				_set_zoom(_camera.zoom.x + ZOOM_STEP)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_set_zoom(_camera.zoom.x - ZOOM_STEP)
 	elif event is InputEventMouseMotion and _panning:
-		# Divide by zoom so pan speed matches world units at any zoom level
-		_camera.position = _pan_start_camera + (event.position - _pan_start_mouse) / _camera.zoom.x
+		# Grab metaphor: negate delta so map follows the mouse (drag down = content moves down)
+		_camera.position = _pan_start_camera - (event.position - _pan_start_mouse) / _camera.zoom.x
 		queue_redraw()
 
 func _set_zoom(z: float) -> void:
