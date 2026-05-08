@@ -2,7 +2,6 @@ class_name CombatScene
 extends Control
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-const DECISION_TIME    := 30.0
 const STAGGER_PAUSE    := 1.5
 const STA_ROLL         := 15
 const STA_BLOCK        := 20
@@ -12,7 +11,6 @@ enum Phase { INIT, PLAYER_ATTACK, TASK_CONFIRM, ENEMY_ATTACK, ENEMY_STAGGERED, V
 
 # ── Combat state ──────────────────────────────────────────────────────────────
 var _phase: Phase = Phase.INIT
-var _timer: float  = 0.0
 var _new_round: bool = true          # true = restore stamina at next player turn
 var _player_first: bool = true
 
@@ -43,7 +41,6 @@ var _enemy_poise_bar: ProgressBar
 var _enemy_move_lbl:  Label
 var _log:             RichTextLabel
 var _phase_lbl:       Label
-var _timer_bar:       ProgressBar
 var _options_box:     HFlowContainer
 var _player_hp_bar:   ProgressBar
 var _player_sta_bar:  ProgressBar
@@ -67,13 +64,6 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
 	_init_combat()
-
-func _process(delta: float) -> void:
-	if _phase in [Phase.PLAYER_ATTACK, Phase.ENEMY_ATTACK]:
-		_timer = maxf(0.0, _timer - delta)
-		_timer_bar.value = _timer
-		if _timer == 0.0:
-			_on_timer_expired()
 
 # ── Combat initialisation ─────────────────────────────────────────────────────
 
@@ -125,8 +115,6 @@ func _enter_phase(new_phase: Phase) -> void:
 				_player_stamina = GameManager.max_stamina
 				_new_round = false
 				_update_player_bars()
-			_timer = DECISION_TIME
-			_timer_bar.show()
 			_show_player_options()
 
 		Phase.ENEMY_ATTACK:
@@ -151,8 +139,6 @@ func _enter_phase(new_phase: Phase) -> void:
 				return
 			# Normal flow
 			_choose_enemy_move()
-			_timer = DECISION_TIME
-			_timer_bar.show()
 			_show_defense_options()
 
 		Phase.ENEMY_STAGGERED:
@@ -163,15 +149,6 @@ func _enter_phase(new_phase: Phase) -> void:
 
 		Phase.DEFEAT:
 			_handle_defeat()
-
-func _on_timer_expired() -> void:
-	match _phase:
-		Phase.PLAYER_ATTACK:
-			_log_add("No action chosen — turn skipped.", Color(0.6, 0.6, 0.6))
-			_enter_phase(Phase.ENEMY_ATTACK)
-		Phase.ENEMY_ATTACK:
-			_log_add("No response — you take the hit.", Color(0.85, 0.35, 0.25))
-			_apply_defense("take")
 
 # ── Player attack phase ───────────────────────────────────────────────────────
 
@@ -321,7 +298,6 @@ func _show_defense_options() -> void:
 		_log_add("GUARD BREAK — no stamina left! You can only Take or Flee.", Color(0.9, 0.5, 0.1))
 
 func _on_defense(action: String) -> void:
-	_timer_bar.hide()
 	_apply_defense(action)
 
 func _apply_defense(action: String) -> void:
@@ -438,7 +414,6 @@ func _handle_stagger() -> void:
 	_enter_phase(Phase.PLAYER_ATTACK)
 
 func _handle_victory() -> void:
-	_timer_bar.hide()
 	_clear_options()
 	_phase_lbl.text = "VICTORY"
 	SoundManager.play(SoundManager.Sound.VICTORY)
@@ -486,7 +461,6 @@ func _resolve_drops(is_first_kill: bool) -> Array:
 	return gained
 
 func _handle_defeat() -> void:
-	_timer_bar.hide()
 	_clear_options()
 	_phase_lbl.text = "YOU DIED"
 	SoundManager.play(SoundManager.Sound.DEFEAT)
@@ -640,12 +614,6 @@ func _build_options_section(root: VBoxContainer) -> void:
 	_phase_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_phase_lbl.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(_phase_lbl)
-
-	_timer_bar = ProgressBar.new()
-	_timer_bar.max_value = DECISION_TIME
-	_timer_bar.value = DECISION_TIME
-	_timer_bar.show_percentage = false
-	vbox.add_child(_timer_bar)
 
 	_options_box = HFlowContainer.new()
 	_options_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
