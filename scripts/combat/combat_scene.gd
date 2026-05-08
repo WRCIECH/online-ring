@@ -87,6 +87,12 @@ func _init_combat() -> void:
 	_enemy_name_lbl.text = _enemy.name
 	_update_enemy_bars()
 	_update_player_bars()
+
+	# Recover runes if this is the death location
+	var runes_here: int = GameManager.runes_at_death
+	if GameManager.recover_runes_at(GameManager.current_location):
+		_log_add("You recovered %d runes." % runes_here, Color(1.0, 0.85, 0.2))
+
 	_log_add("You face [b]%s[/b]." % _enemy.name, Color(0.9, 0.75, 0.2))
 	_log_add(_enemy.description, Color(0.65, 0.65, 0.65))
 

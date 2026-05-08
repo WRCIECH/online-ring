@@ -19,11 +19,17 @@ func refresh_state() -> void:
 # ── Drawing ───────────────────────────────────────────────────────────────────
 
 func _draw() -> void:
-	var is_unlocked := GameManager.unlocked_areas.has(location_data.get("area", ""))
-	var is_current  := GameManager.current_location == location_id
-	var is_grace: bool = location_data.get("is_site_of_grace", false)
-	var is_boss: bool  = location_data.get("is_remembrance", false)
+	var is_unlocked: bool = GameManager.unlocked_areas.has(location_data.get("area", ""))
+	var is_current: bool  = GameManager.current_location == location_id
+	var is_grace: bool    = location_data.get("is_site_of_grace", false)
+	var is_boss: bool     = location_data.get("is_remembrance", false)
 
+	var enemy_id: String  = location_data.get("enemy_id", "")
+	var is_defeated: bool = not enemy_id.is_empty() and GameManager.defeated_enemies.has(enemy_id)
+	var has_lost_runes: bool = (location_id == GameManager.death_location
+								and GameManager.runes_at_death > 0)
+
+	# ── Base colour ───────────────────────────────────────────────────────────
 	var base_color: Color
 	if not is_unlocked:
 		base_color = GameConstants.COLOR_LOCKED_NODE
@@ -34,19 +40,39 @@ func _draw() -> void:
 	else:
 		base_color = GameConstants.COLOR_ENEMY_AREA
 
+	if is_defeated and not is_grace:
+		base_color = base_color.darkened(0.35)
+
 	if _hovered and is_unlocked:
 		base_color = base_color.lightened(GameConstants.COLOR_HOVER_AMOUNT)
 
-	# Outer pulse ring for current location
+	# ── Rings (outermost first) ───────────────────────────────────────────────
+
+	# Amber ring = lost runes here
+	if has_lost_runes:
+		draw_circle(Vector2.ZERO, RADIUS + 13.0, Color(1.0, 0.78, 0.10))
+		draw_circle(Vector2.ZERO, RADIUS + 9.5,  GameConstants.COLOR_MAP_BG)
+
+	# Gold ring = current location
 	if is_current:
-		draw_circle(Vector2.ZERO, RADIUS + 7.0, GameConstants.COLOR_CURRENT_LOCATION)
+		draw_circle(Vector2.ZERO, RADIUS + 6.5, GameConstants.COLOR_CURRENT_LOCATION)
 
-	draw_circle(Vector2.ZERO, RADIUS, base_color)
+	# ── Main circle ───────────────────────────────────────────────────────────
+	var draw_color: Color = base_color
+	if is_defeated and not is_grace:
+		draw_color.a = 0.60
+	draw_circle(Vector2.ZERO, RADIUS, draw_color)
 
-	# Inner dot
-	draw_circle(Vector2.ZERO, RADIUS * 0.35, Color(1, 1, 1, 0.25))
+	# ── Inner indicator ───────────────────────────────────────────────────────
+	if is_defeated and not is_grace:
+		# X = cleared
+		var r: float = RADIUS * 0.38
+		draw_line(Vector2(-r, -r), Vector2(r,  r), Color(1, 1, 1, 0.45), 2.0)
+		draw_line(Vector2( r, -r), Vector2(-r, r), Color(1, 1, 1, 0.45), 2.0)
+	else:
+		draw_circle(Vector2.ZERO, RADIUS * 0.35, Color(1, 1, 1, 0.22))
 
-	# Location name below node
+	# ── Labels ────────────────────────────────────────────────────────────────
 	var font: Font = ThemeDB.fallback_font
 	if font:
 		var label: String = location_data.get("name", "")
@@ -59,6 +85,16 @@ func _draw() -> void:
 			11,
 			Color(0.88, 0.82, 0.65)
 		)
+		if has_lost_runes:
+			draw_string(
+				font,
+				Vector2(-LABEL_WIDTH * 0.5, RADIUS + 28.0),
+				"%d runes" % GameManager.runes_at_death,
+				HORIZONTAL_ALIGNMENT_CENTER,
+				LABEL_WIDTH,
+				10,
+				Color(1.0, 0.78, 0.10)
+			)
 
 # ── Input ─────────────────────────────────────────────────────────────────────
 

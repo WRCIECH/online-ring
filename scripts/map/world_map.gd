@@ -101,6 +101,7 @@ var _info_enter:    Button
 
 var _level_up_screen: LevelUpScreen
 var _equip_screen:    EquipScreen
+var _ui_layer:        CanvasLayer
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -116,9 +117,13 @@ func _ready() -> void:
 
 	get_viewport().size_changed.connect(queue_redraw)
 	GameManager.stats_changed.connect(_refresh_ui)
-	GameManager.runes_changed.connect(func(_r: int): _refresh_ui())
+	GameManager.runes_changed.connect(func(_r: int):
+		_refresh_ui()
+		_refresh_all_nodes()
+	)
 	GameManager.hp_changed.connect(func(_h: int, _m: int): _refresh_ui())
 	GameManager.location_changed.connect(func(_l: String): _refresh_all_nodes())
+	GameManager.player_died.connect(_refresh_all_nodes)
 
 # ── Drawing (background + connection lines) ───────────────────────────────────
 
@@ -148,9 +153,10 @@ func _draw() -> void:
 # ── UI layer (top bar + info panel) ──────────────────────────────────────────
 
 func _build_ui_layer() -> void:
-	var ui := CanvasLayer.new()
-	ui.layer = 5
-	add_child(ui)
+	_ui_layer = CanvasLayer.new()
+	_ui_layer.layer = 5
+	add_child(_ui_layer)
+	var ui: CanvasLayer = _ui_layer
 
 	# Top bar
 	var top := PanelContainer.new()
@@ -213,6 +219,46 @@ func _build_ui_layer() -> void:
 	_info_enter = Button.new()
 	_info_enter.pressed.connect(_on_enter_pressed)
 	ivbox.add_child(_info_enter)
+
+	_build_legend(ui)
+
+func _build_legend(ui: CanvasLayer) -> void:
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.offset_top    = -215
+	panel.offset_right  = 218
+	panel.offset_bottom = -10
+	ui.add_child(panel)
+
+	var m := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 10)
+	panel.add_child(m)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 3)
+	m.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "LEGEND"
+	title.add_theme_font_size_override("font_size", 11)
+	title.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	vbox.add_child(title)
+
+	_legend_entry(vbox, "●  Site of Grace",      GameConstants.COLOR_SITE_OF_GRACE)
+	_legend_entry(vbox, "●  Enemy area",          GameConstants.COLOR_ENEMY_AREA)
+	_legend_entry(vbox, "●  Remembrance Boss",    GameConstants.COLOR_REMEMBRANCE)
+	_legend_entry(vbox, "●  Locked area",         GameConstants.COLOR_LOCKED_NODE)
+	_legend_entry(vbox, "◉  Current location",    GameConstants.COLOR_CURRENT_LOCATION)
+	_legend_entry(vbox, "◎  Lost runes here",     Color(1.0, 0.78, 0.10))
+	_legend_entry(vbox, "⊗  Defeated",            Color(0.42, 0.42, 0.42))
+
+func _legend_entry(parent: VBoxContainer, text: String, color: Color) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", color)
+	parent.add_child(lbl)
 
 # ── Map nodes ─────────────────────────────────────────────────────────────────
 
