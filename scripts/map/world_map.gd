@@ -119,10 +119,14 @@ var _merchant_screen:  MerchantScreen
 var _ui_layer:         CanvasLayer
 var _camera:           Camera2D
 
-# ── Pan state ─────────────────────────────────────────────────────────────────
+# ── Pan / zoom state ──────────────────────────────────────────────────────────
 var _panning:          bool    = false
 var _pan_start_mouse:  Vector2 = Vector2.ZERO
 var _pan_start_camera: Vector2 = Vector2.ZERO
+
+const ZOOM_MIN  := 0.35
+const ZOOM_MAX  := 2.50
+const ZOOM_STEP := 0.12
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -158,17 +162,24 @@ func _ready() -> void:
 # ── Drawing (background + connection lines) ───────────────────────────────────
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		if event.pressed:
-			_panning = true
-			_pan_start_mouse  = event.position
-			_pan_start_camera = _camera.position
-		else:
-			_panning = false
+	if event is InputEventMouseButton:
+		match event.button_index:
+			MOUSE_BUTTON_MIDDLE:
+				_panning = event.pressed
+				if event.pressed:
+					_pan_start_mouse  = event.position
+					_pan_start_camera = _camera.position
+			MOUSE_BUTTON_WHEEL_UP:
+				_set_zoom(_camera.zoom.x + ZOOM_STEP)
+			MOUSE_BUTTON_WHEEL_DOWN:
+				_set_zoom(_camera.zoom.x - ZOOM_STEP)
 	elif event is InputEventMouseMotion and _panning:
-		# Drag right → camera moves right → reveals content to the right
-		_camera.position = _pan_start_camera + (event.position - _pan_start_mouse)
+		# Divide by zoom so pan speed matches world units at any zoom level
+		_camera.position = _pan_start_camera + (event.position - _pan_start_mouse) / _camera.zoom.x
 		queue_redraw()
+
+func _set_zoom(z: float) -> void:
+	_camera.zoom = Vector2.ONE * clampf(z, ZOOM_MIN, ZOOM_MAX)
 
 func _draw() -> void:
 	# Large rect — background must cover any camera position without gaps
