@@ -1,10 +1,11 @@
 extends Node
 
 const SAVE_PATH   := "user://save_data.json"
+const BACKUP_PATH := "user://save_data_backup.json"
 const CONFIG_PATH := "user://player.cfg"
 
-# Update this constant after Railway deployment.
-# Format: "https://your-app.up.railway.app"
+# Set to true once Railway is deployed and API_BASE_URL is updated.
+const SYNC_ENABLED := false
 const API_BASE_URL := "http://localhost:8000"
 
 var player_id: String = ""
@@ -44,7 +45,8 @@ func save_game() -> void:
 	data["player_id"] = player_id
 	data["saved_at"]  = Time.get_unix_time_from_system()
 	_save_local(data)
-	_push_to_server(data)
+	if SYNC_ENABLED:
+		_push_to_server(data)
 	save_completed.emit()
 
 func load_game() -> void:
@@ -52,12 +54,23 @@ func load_game() -> void:
 	if not local.is_empty():
 		GameManager.load_save_data(local)
 	load_completed.emit()
-	# Background fetch: if server has newer data, it will be applied automatically.
-	_fetch_from_server()
+	if SYNC_ENABLED:
+		_fetch_from_server()
 
 # ── Local persistence ─────────────────────────────────────────────────────────
 
 func _save_local(data: Dictionary) -> void:
+	# Rotate current save to backup before overwriting
+	if FileAccess.file_exists(SAVE_PATH):
+		var old := FileAccess.open(SAVE_PATH, FileAccess.READ)
+		if old:
+			var content := old.get_as_text()
+			old.close()
+			var bak := FileAccess.open(BACKUP_PATH, FileAccess.WRITE)
+			if bak:
+				bak.store_string(content)
+				bak.close()
+
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		push_error("SaveManager: cannot open save file for writing")
@@ -66,9 +79,19 @@ func _save_local(data: Dictionary) -> void:
 	file.close()
 
 func _load_local() -> Dictionary:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var result := _try_load(SAVE_PATH)
+	if not result.is_empty():
+		return result
+	# Primary corrupt or missing — try backup
+	var backup := _try_load(BACKUP_PATH)
+	if not backup.is_empty():
+		push_warning("SaveManager: primary save corrupt, loaded from backup")
+	return backup
+
+func _try_load(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
 		return {}
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
 	var text := file.get_as_text()
