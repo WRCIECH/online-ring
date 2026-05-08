@@ -208,6 +208,7 @@ func _execute_attack() -> void:
 	_enemy_poise -= pdmg
 	_update_enemy_bars()
 
+	SoundManager.play(SoundManager.Sound.HIT)
 	_log_add("You use [b]%s[/b] — %d damage!" % [move.name, dmg], Color.WHITE)
 
 	if _enemy_hp <= 0:
@@ -268,17 +269,21 @@ func _apply_defense(action: String) -> void:
 
 	match action:
 		"roll":
+			SoundManager.play(SoundManager.Sound.ROLL)
 			_player_stamina -= STA_ROLL
 			_log_add("You roll away. No damage taken.", Color(0.5, 0.85, 0.5))
 		"block":
+			SoundManager.play(SoundManager.Sound.BLOCK)
 			_player_stamina -= STA_BLOCK
 			var dmg: int = move.get("block_damage", 0)
 			_player_hp -= dmg
 			_log_add("You block! Took %d damage." % dmg, Color(0.85, 0.65, 0.25))
 		"parry":
+			SoundManager.play(SoundManager.Sound.PARRY)
 			_player_stamina -= STA_PARRY
 			_log_add("Parried! No damage taken.", Color(0.4, 0.95, 0.4))
 		"take":
+			SoundManager.play(SoundManager.Sound.HIT)
 			var dmg: int = move.get("damage", 0)
 			_player_hp -= dmg
 			_log_add("You take the full hit — %d damage!" % dmg, Color(0.9, 0.25, 0.2))
@@ -304,6 +309,7 @@ func _handle_stagger() -> void:
 	_update_enemy_bars()
 	_clear_options()
 	_phase_lbl.text = "STAGGERED!"
+	SoundManager.play(SoundManager.Sound.STAGGER)
 	_log_add("The enemy is staggered! You can attack freely.", Color(1.0, 0.9, 0.2))
 	await get_tree().create_timer(STAGGER_PAUSE).timeout
 	_enter_phase(Phase.PLAYER_ATTACK)
@@ -312,12 +318,14 @@ func _handle_victory() -> void:
 	_timer_bar.hide()
 	_clear_options()
 	_phase_lbl.text = "VICTORY"
+	SoundManager.play(SoundManager.Sound.VICTORY)
 
 	var enemy_id: String = GameManager.pending_encounter.get("enemy_id", "")
 	var is_first_kill: bool = not GameManager.defeated_enemies.has(enemy_id)
 
 	var runes: int = _enemy.get("rune_reward", 0)
 	GameManager.add_runes(runes)
+	SoundManager.play(SoundManager.Sound.RUNE_GAIN)
 	_log_add("Victory! +%d runes." % runes, Color(1.0, 0.85, 0.2))
 
 	if is_first_kill and not enemy_id.is_empty():
@@ -351,12 +359,14 @@ func _resolve_drops(is_first_kill: bool) -> Array:
 			if not weapon_id.is_empty() and not GameManager.weapons.has(weapon_id):
 				GameManager.weapons.append(weapon_id)
 				gained.append(weapon_id)
+				SoundManager.play(SoundManager.Sound.LOOT_DROP)
 	return gained
 
 func _handle_defeat() -> void:
 	_timer_bar.hide()
 	_clear_options()
 	_phase_lbl.text = "YOU DIED"
+	SoundManager.play(SoundManager.Sound.DEFEAT)
 	GameManager.runes_at_death   = GameManager.runes
 	GameManager.death_location   = GameManager.current_location
 	GameManager.runes            = 0

@@ -260,6 +260,7 @@ func _on_equip_pressed() -> void:
 	if _selected_id.is_empty():
 		return
 	GameManager.equipped_weapon = _selected_id
+	SoundManager.play(SoundManager.Sound.BUTTON_CLICK)
 	SaveManager.save_game()
 	_refresh_list()
 	_on_weapon_selected(_selected_id)

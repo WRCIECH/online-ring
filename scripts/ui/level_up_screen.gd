@@ -239,6 +239,7 @@ func _on_confirm_pressed() -> void:
 	_pending.clear()
 	for stat in STAT_NAMES:
 		_pending[stat] = 0
+	SoundManager.play(SoundManager.Sound.LEVEL_UP)
 	SaveManager.save_game()
 	_refresh()
 

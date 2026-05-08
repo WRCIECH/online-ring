@@ -321,6 +321,7 @@ func _on_enter_pressed() -> void:
 	if data.is_site_of_grace:
 		GameManager.last_site_of_grace = _selected_id
 		_info_panel.visible = false
+		SoundManager.play(SoundManager.Sound.SITE_OF_GRACE)
 		_level_up_screen.show_screen()
 	else:
 		var enemy_id: String = data.get("enemy_id", "")
