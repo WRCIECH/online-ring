@@ -126,7 +126,7 @@ var _pan_start_camera: Vector2 = Vector2.ZERO
 
 const ZOOM_MIN  := 0.35
 const ZOOM_MAX  := 2.50
-const ZOOM_STEP := 0.12
+const ZOOM_STEP := 0.04
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 

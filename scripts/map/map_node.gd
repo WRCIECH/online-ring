@@ -124,9 +124,10 @@ func _draw() -> void:
 # ── Input ─────────────────────────────────────────────────────────────────────
 
 func _process(_delta: float) -> void:
-	var mouse_pos  := get_viewport().get_mouse_position()
+	# get_global_mouse_position() returns world coordinates (Camera2D-aware)
+	var mouse_world := get_global_mouse_position()
 	var was_hovered := _hovered
-	_hovered = global_position.distance_to(mouse_pos) <= RADIUS
+	_hovered = global_position.distance_to(mouse_world) <= RADIUS
 	if _hovered != was_hovered:
 		queue_redraw()
 
@@ -135,7 +136,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
-	var mouse_pos := get_viewport().get_mouse_position()
-	if global_position.distance_to(mouse_pos) <= RADIUS:
+	var mouse_world := get_global_mouse_position()
+	if global_position.distance_to(mouse_world) <= RADIUS:
 		clicked.emit()
 		get_viewport().set_input_as_handled()
