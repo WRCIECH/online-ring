@@ -161,6 +161,32 @@ func level_up(stat: String) -> bool:
 	stats_changed.emit()
 	return true
 
+# ── Reset ────────────────────────────────────────────────────────────────────
+func reset() -> void:
+	stats             = {"VIG": 10, "STR": 10, "DEX": 10, "INT": 10, "FAI": 10, "ARC": 10}
+	level             = 1
+	runes             = 0
+	runes_at_death    = 0
+	death_location    = ""
+	current_location  = ""
+	last_site_of_grace = ""
+	discovered_locations = []
+	defeated_enemies  = []
+	unlocked_areas    = ["starting_area"]
+	equipped_weapon   = "writers_quill"
+	equipped_seal     = ""
+	equipped_armor    = ""
+	equipped_talismans = ["", ""]
+	weapons           = ["writers_quill"]
+	items             = []
+	pending_encounter = {}
+	faith_integrity   = 100
+	recalculate_derived_stats()
+	current_hp      = max_hp
+	current_fp      = max_fp
+	current_stamina = max_stamina
+	stats_changed.emit()
+
 # ── Save / Load ──────────────────────────────────────────────────────────────
 func get_save_data() -> Dictionary:
 	return {

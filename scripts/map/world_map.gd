@@ -109,6 +109,7 @@ var _hp_label:    Label
 var _info_panel:    PanelContainer
 var _info_name:     Label
 var _info_desc:     Label
+var _info_moveset:  Label
 var _info_enter:    Button
 
 var _level_up_screen:  LevelUpScreen
@@ -211,8 +212,8 @@ func _build_ui_layer() -> void:
 	_info_panel = PanelContainer.new()
 	_info_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
 	_info_panel.offset_left   = -310
-	_info_panel.offset_top    = -170
-	_info_panel.offset_bottom =  170
+	_info_panel.offset_top    = -215
+	_info_panel.offset_bottom =  215
 	_info_panel.visible = false
 	ui.add_child(_info_panel)
 
@@ -236,6 +237,13 @@ func _build_ui_layer() -> void:
 	_info_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_info_desc.custom_minimum_size = Vector2(260, 0)
 	ivbox.add_child(_info_desc)
+
+	_info_moveset = Label.new()
+	_info_moveset.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_info_moveset.add_theme_font_size_override("font_size", 12)
+	_info_moveset.add_theme_color_override("font_color", Color(0.60, 0.58, 0.52))
+	_info_moveset.visible = false
+	ivbox.add_child(_info_moveset)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -330,6 +338,7 @@ func _on_node_clicked(id: String) -> void:
 		var blocker := _area_blocker_name(data.area)
 		_info_desc.text = "Locked." if blocker.is_empty() \
 			else "Locked — defeat %s to unlock this area." % blocker
+		_info_moveset.visible = false
 		_info_enter.text = "Locked"
 		_info_enter.disabled = true
 		_info_panel.visible = true
@@ -339,6 +348,19 @@ func _on_node_clicked(id: String) -> void:
 	_info_name.text = data.name
 	_info_desc.text = data.description
 	_info_enter.disabled = false
+
+	# Show enemy moveset if this location has an enemy (GDD: known upfront)
+	var enemy_id: String = data.get("enemy_id", "")
+	if not enemy_id.is_empty() and EnemyDB.ENEMIES.has(enemy_id):
+		var enemy: Dictionary = EnemyDB.ENEMIES[enemy_id]
+		var lines := PackedStringArray(["", "Attacks:"])
+		for move in enemy.get("moveset", []):
+			lines.append(" • %s — %s" % [move.get("name", ""), move.get("description", "")])
+		_info_moveset.text = "\n".join(lines)
+		_info_moveset.visible = true
+	else:
+		_info_moveset.visible = false
+
 	if data.is_site_of_grace:
 		_info_enter.text = "Rest at Site of Grace"
 	elif data.get("is_merchant", false):

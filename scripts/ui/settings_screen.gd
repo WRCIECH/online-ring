@@ -5,6 +5,7 @@ var _always_on_top_check: CheckBox
 var _fullscreen_check:    CheckBox
 var _volume_slider:       HSlider
 var _volume_pct:          Label
+var _reset_confirm_row:   Control
 
 func _ready() -> void:
 	layer = 10
@@ -98,6 +99,45 @@ func _build_ui() -> void:
 
 	vbox.add_child(HSeparator.new())
 
+	# ── Reset ─────────────────────────────────────────────────────────────────
+	_section_header(vbox, "DANGER ZONE")
+
+	var reset_btn := Button.new()
+	reset_btn.text = "Reset All Progress"
+	reset_btn.add_theme_color_override("font_color", Color(0.85, 0.35, 0.25))
+	reset_btn.pressed.connect(_on_reset_pressed)
+	vbox.add_child(reset_btn)
+
+	_reset_confirm_row = VBoxContainer.new()
+	_reset_confirm_row.add_theme_constant_override("separation", 6)
+	_reset_confirm_row.visible = false
+	vbox.add_child(_reset_confirm_row)
+
+	var warn := Label.new()
+	warn.text = "Erase all progress and return to the title screen?"
+	warn.autowrap_mode = TextServer.AUTOWRAP_WORD
+	warn.add_theme_font_size_override("font_size", 12)
+	warn.add_theme_color_override("font_color", Color(0.85, 0.35, 0.25))
+	_reset_confirm_row.add_child(warn)
+
+	var confirm_row := HBoxContainer.new()
+	confirm_row.add_theme_constant_override("separation", 10)
+	_reset_confirm_row.add_child(confirm_row)
+
+	var yes_btn := Button.new()
+	yes_btn.text = "Yes, erase"
+	yes_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	yes_btn.pressed.connect(_on_reset_confirmed)
+	confirm_row.add_child(yes_btn)
+
+	var no_btn := Button.new()
+	no_btn.text = "Cancel"
+	no_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	no_btn.pressed.connect(func(): _reset_confirm_row.visible = false)
+	confirm_row.add_child(no_btn)
+
+	vbox.add_child(HSeparator.new())
+
 	# Close
 	var close_btn := Button.new()
 	close_btn.text = "Close"
@@ -125,7 +165,20 @@ func _on_volume_changed(value: float) -> void:
 
 # ── Keyboard ──────────────────────────────────────────────────────────────────
 
+func _on_reset_pressed() -> void:
+	_reset_confirm_row.visible = true
+
+func _on_reset_confirmed() -> void:
+	var dir := DirAccess.open("user://")
+	if dir:
+		dir.remove("save_data.json")
+		dir.remove("save_data_backup.json")
+	GameManager.reset()
+	hide()
+	get_tree().change_scene_to_file("res://scenes/ui/title_screen.tscn")
+
 func _unhandled_input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("ui_cancel"):
+		_reset_confirm_row.visible = false  # also dismiss confirm row if open
 		hide()
 		get_viewport().set_input_as_handled()
