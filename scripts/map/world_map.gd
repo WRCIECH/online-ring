@@ -245,9 +245,9 @@ func _build_ui_layer() -> void:
 	_info_moveset.visible = false
 	ivbox.add_child(_info_moveset)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	ivbox.add_child(spacer)
+	var info_spacer := Control.new()
+	info_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	ivbox.add_child(info_spacer)
 
 	_info_enter = Button.new()
 	_info_enter.pressed.connect(_on_enter_pressed)
