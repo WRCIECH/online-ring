@@ -52,7 +52,8 @@ var _enemy_visual:    ColorRect    # simple placeholder until real sprites exist
 var _enemy_move_lbl:  Label
 var _log:             RichTextLabel
 var _phase_lbl:       Label
-var _ring_container:  Control      # parent for ring-menu buttons
+var _ring_container:   Control      # holds permanent enemy info + _buttons_container
+var _buttons_container: Control     # holds only the transient ring buttons
 var _player_hp_bar:   ProgressBar
 var _player_sta_bar:  ProgressBar
 var _player_fp_bar:   ProgressBar
@@ -522,9 +523,8 @@ func _log_add(text: String, color: Color = Color.WHITE) -> void:
 	_log.scroll_to_line(_log.get_line_count())
 
 func _clear_options() -> void:
-	for child in _ring_container.get_children():
-		if child != _phase_lbl:
-			child.queue_free()
+	for child in _buttons_container.get_children():
+		child.queue_free()
 
 # Single button (used for end-state labels like "Return to Map")
 func _btn(label: String, callback: Callable, disabled: bool = false) -> void:
@@ -535,7 +535,7 @@ func _btn(label: String, callback: Callable, disabled: bool = false) -> void:
 	b.custom_minimum_size = Vector2(200, 54)
 	b.position = RING_CENTER - Vector2(100, 27)
 	b.pressed.connect(callback)
-	_ring_container.add_child(b)
+	_buttons_container.add_child(b)
 
 # Ring-menu: items = [{label, callback, disabled?}, ...]
 func _populate_ring(items: Array) -> void:
@@ -552,7 +552,7 @@ func _populate_ring(items: Array) -> void:
 		b.custom_minimum_size = Vector2(RING_BTN_W, RING_BTN_H)
 		b.position       = center - Vector2(RING_BTN_W, RING_BTN_H) / 2.0
 		b.pressed.connect(items[i].callback)
-		_ring_container.add_child(b)
+		_buttons_container.add_child(b)
 
 # ── UI construction ───────────────────────────────────────────────────────────
 
@@ -594,7 +594,7 @@ func _thick_bar(color: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(230, 20)
-	bar.add_theme_color_override("fill_color_modulate", color)
+	_apply_bar_color(bar, color)
 	return bar
 
 # ── Ring menu — centre (enemy info lives here too) ────────────────────────────
@@ -604,6 +604,12 @@ func _build_ring() -> void:
 	_ring_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ring_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_ring_container)
+
+	# Dedicated sub-container for transient ring buttons (cleared each turn)
+	_buttons_container = Control.new()
+	_buttons_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_buttons_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ring_container.add_child(_buttons_container)
 
 	# _phase_lbl kept as invisible node — code still writes to it harmlessly
 	_phase_lbl = Label.new()
@@ -781,5 +787,13 @@ func _progress_bar(color: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size.y = 14
-	bar.add_theme_color_override("fill_color_modulate", color)
+	_apply_bar_color(bar, color)
 	return bar
+
+func _apply_bar_color(bar: ProgressBar, color: Color) -> void:
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	bar.add_theme_stylebox_override("fill", fill)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.10, 0.10, 0.12)
+	bar.add_theme_stylebox_override("background", bg)
