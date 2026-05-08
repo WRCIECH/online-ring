@@ -134,14 +134,14 @@ func _draw() -> void:
 		for conn_id in data.connections:
 			if not MAP_DATA.has(conn_id):
 				continue
-			var key := (id + "|" + conn_id) if id < conn_id else (conn_id + "|" + id)
+			var key: String = str(id) + "|" + str(conn_id) if id < conn_id else str(conn_id) + "|" + str(id)
 			if drawn.has(key):
 				continue
 			drawn[key] = true
 
 			var to_pos: Vector2    = MAP_DATA[conn_id].position
 			var to_unlocked := GameManager.unlocked_areas.has(MAP_DATA[conn_id].area)
-			var col := GameConstants.COLOR_CONNECTION if (from_unlocked and to_unlocked) else GameConstants.COLOR_CONNECTION_LOCKED
+			var col: Color = GameConstants.COLOR_CONNECTION if (from_unlocked and to_unlocked) else GameConstants.COLOR_CONNECTION_LOCKED
 			draw_line(from_pos, to_pos, col, 2.0, true)
 
 # ── UI layer (top bar + info panel) ──────────────────────────────────────────

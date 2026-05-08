@@ -75,7 +75,7 @@ func _sync_to_server(data: Dictionary) -> void:
 		_pending_sync = true  # retry on next save
 		return
 	var body := JSON.stringify(data)
-	var headers := ["Content-Type: application/json"]
+	var headers := PackedStringArray(["Content-Type: application/json"])
 	var err := _http.request(API_BASE_URL + "/save", headers, HTTPClient.METHOD_POST, body)
 	if err != OK:
 		push_warning("SaveManager: HTTP request failed to start (offline?)")
