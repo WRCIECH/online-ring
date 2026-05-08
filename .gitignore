@@ -1,0 +1,25 @@
+# Godot cache (auto-generated, machine-specific)
+.godot/
+
+# Godot import metadata (auto-generated per asset)
+*.import
+
+# Godot export config (contains signing keys / paths)
+export_presets.cfg
+
+# Godot export artifacts
+*.apk
+*.aab
+
+# Python
+backend/.env
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+
+# macOS
+.DS_Store
+._*
