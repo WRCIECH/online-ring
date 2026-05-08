@@ -322,12 +322,23 @@ func _build_merchant_screen() -> void:
 
 func _on_node_clicked(id: String) -> void:
 	var data: Dictionary = MAP_DATA[id]
+
 	if not GameManager.unlocked_areas.has(data.area):
+		# Show locked feedback instead of silently ignoring the click
+		_selected_id = ""
+		_info_name.text = data.name
+		var blocker := _area_blocker_name(data.area)
+		_info_desc.text = "Locked." if blocker.is_empty() \
+			else "Locked — defeat %s to unlock this area." % blocker
+		_info_enter.text = "Locked"
+		_info_enter.disabled = true
+		_info_panel.visible = true
 		return
 
 	_selected_id = id
 	_info_name.text = data.name
 	_info_desc.text = data.description
+	_info_enter.disabled = false
 	if data.is_site_of_grace:
 		_info_enter.text = "Rest at Site of Grace"
 	elif data.get("is_merchant", false):
@@ -335,6 +346,13 @@ func _on_node_clicked(id: String) -> void:
 	else:
 		_info_enter.text = "Enter Location"
 	_info_panel.visible = true
+
+func _area_blocker_name(area: String) -> String:
+	for loc_id in MAP_DATA:
+		var loc: Dictionary = MAP_DATA[loc_id]
+		if loc.get("is_remembrance", false) and loc.get("unlocks_area", "") == area:
+			return loc.name
+	return ""
 
 func _on_enter_pressed() -> void:
 	if _selected_id.is_empty():

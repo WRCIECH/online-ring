@@ -709,6 +709,14 @@ func _build_task_popup() -> void:
 
 	vbox.add_child(HSeparator.new())
 
+	var context := Label.new()
+	context.text = "Complete the real-world task below before your attack lands.\nHonour system — the game's power scales with your actual creative output."
+	context.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	context.autowrap_mode = TextServer.AUTOWRAP_WORD
+	context.add_theme_font_size_override("font_size", 11)
+	context.add_theme_color_override("font_color", Color(0.48, 0.48, 0.48))
+	vbox.add_child(context)
+
 	_task_move_lbl = Label.new()
 	_task_move_lbl.add_theme_font_size_override("font_size", 15)
 	vbox.add_child(_task_move_lbl)
