@@ -7,6 +7,17 @@ const STA_ROLL         := 15
 const STA_BLOCK        := 20
 const STA_PARRY        := 25
 
+# Elden Ring stat-bar colours (approximated from screenshots)
+const ER_HP  := Color(0.73, 0.06, 0.06)   # deep crimson
+const ER_FP  := Color(0.12, 0.27, 0.70)   # royal blue
+const ER_STA := Color(0.28, 0.62, 0.18)   # medium green
+
+# Ring-menu geometry (screen-space, 1200×800 reference)
+const RING_CENTER := Vector2(600, 445)
+const RING_RADIUS := 168.0
+const RING_BTN_W  := 158.0
+const RING_BTN_H  := 54.0
+
 enum Phase { INIT, PLAYER_ATTACK, TASK_CONFIRM, ENEMY_ATTACK, ENEMY_STAGGERED, VICTORY, DEFEAT }
 
 # ── Combat state ──────────────────────────────────────────────────────────────
@@ -37,11 +48,11 @@ var _faith_crack: bool = false  # true if incantation used without faith confirm
 # ── UI refs ───────────────────────────────────────────────────────────────────
 var _enemy_name_lbl:  Label
 var _enemy_hp_bar:    ProgressBar
-var _enemy_poise_bar: ProgressBar
+var _enemy_visual:    ColorRect    # simple placeholder until real sprites exist
 var _enemy_move_lbl:  Label
 var _log:             RichTextLabel
 var _phase_lbl:       Label
-var _options_box:     HFlowContainer
+var _ring_container:  Control      # parent for ring-menu buttons
 var _player_hp_bar:   ProgressBar
 var _player_sta_bar:  ProgressBar
 var _player_fp_bar:   ProgressBar
@@ -87,6 +98,13 @@ func _init_combat() -> void:
 	_enemy_skip_turn      = false
 
 	_enemy_name_lbl.text = _enemy.name
+	# Tint the visual placeholder based on enemy tier
+	if _enemy.get("is_remembrance", false):
+		_enemy_visual.color = Color(0.18, 0.05, 0.22)   # dark purple
+	elif _enemy.get("is_boss", false):
+		_enemy_visual.color = Color(0.22, 0.05, 0.05)   # dark red
+	else:
+		_enemy_visual.color = Color(0.10, 0.09, 0.12)   # dark grey-blue
 	_update_enemy_bars()
 	_update_player_bars()
 
@@ -153,27 +171,28 @@ func _enter_phase(new_phase: Phase) -> void:
 # ── Player attack phase ───────────────────────────────────────────────────────
 
 func _show_player_options() -> void:
-	_clear_options()
 	_phase_lbl.text = "YOUR TURN"
 	_enemy_move_lbl.text = ""
 
 	var weapon_id: String = GameManager.equipped_weapon
 	var weapon: Dictionary = WeaponDB.WEAPONS.get(weapon_id, WeaponDB.WEAPONS["writers_quill"])
 
+	var items: Array = []
 	for move in weapon.moveset:
 		var dmg    := WeaponDB.calc_damage(move, weapon, GameManager.stats)
 		var sta    : int = move.get("stamina_cost", 0)
 		var fp     : int = move.get("fp_cost", 0)
 		var can_use := _player_stamina >= sta and _player_fp >= fp
-
 		var cost_str := ""
 		if sta > 0: cost_str += " %dSTA" % sta
 		if fp  > 0: cost_str += " %dFP"  % fp
-
-		_btn("%s\n%ddmg |%s" % [move.name, dmg, cost_str],
-			_on_attack_btn.bind(move, weapon), not can_use)
-
-	_btn("End Turn\n(save stamina)", _on_end_turn, false)
+		items.append({
+			"label":    "%s\n%ddmg |%s" % [move.name, dmg, cost_str],
+			"callback": _on_attack_btn.bind(move, weapon),
+			"disabled": not can_use,
+		})
+	items.append({"label": "End Turn\n(save stamina)", "callback": _on_end_turn, "disabled": false})
+	_populate_ring(items)
 
 func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
 	_pending_move   = move
@@ -280,22 +299,27 @@ func _choose_enemy_move() -> void:
 	_log_add("The %s uses [b]%s[/b]!" % [_enemy.name, _current_enemy_move.name], Color(0.9, 0.35, 0.25))
 
 func _show_defense_options() -> void:
-	_clear_options()
-	_phase_lbl.text = "ENEMY ATTACKS — Choose your response"
-	var sta      := _player_stamina
+	_phase_lbl.text = "ENEMY ATTACKS"
+	var sta         := _player_stamina
 	var guard_break := sta == 0
 
-	_btn("Roll\n0 dmg | %dSTA" % STA_ROLL,  _on_defense.bind("roll"),  guard_break or sta < STA_ROLL)
-	_btn("Block\n%ddmg | %dSTA" % [_current_enemy_move.get("block_damage", 0), STA_BLOCK],
-		_on_defense.bind("block"), guard_break or sta < STA_BLOCK)
-	_btn("Parry\n0 dmg | %dSTA" % STA_PARRY, _on_defense.bind("parry"), guard_break or sta < STA_PARRY)
-	_btn("Take\n%ddmg | 0STA" % _current_enemy_move.get("damage", 0), _on_defense.bind("take"), false)
-
+	var items: Array = [
+		{"label": "Roll\n0 dmg | %dSTA" % STA_ROLL,
+		 "callback": _on_defense.bind("roll"),  "disabled": guard_break or sta < STA_ROLL},
+		{"label": "Block\n%ddmg | %dSTA" % [_current_enemy_move.get("block_damage", 0), STA_BLOCK],
+		 "callback": _on_defense.bind("block"), "disabled": guard_break or sta < STA_BLOCK},
+		{"label": "Parry\n0 dmg | %dSTA" % STA_PARRY,
+		 "callback": _on_defense.bind("parry"), "disabled": guard_break or sta < STA_PARRY},
+		{"label": "Take\n%ddmg | 0STA" % _current_enemy_move.get("damage", 0),
+		 "callback": _on_defense.bind("take"),  "disabled": false},
+	]
 	if not _enemy.get("is_boss", false):
-		_btn("Flee\n(no runes)", _on_defense.bind("flee"), false)
+		items.append({"label": "Flee\n(no runes)", "callback": _on_defense.bind("flee"), "disabled": false})
 
 	if guard_break:
-		_log_add("GUARD BREAK — no stamina left! You can only Take or Flee.", Color(0.9, 0.5, 0.1))
+		_log_add("GUARD BREAK — no stamina! Only Take or Flee.", Color(0.9, 0.5, 0.1))
+
+	_populate_ring(items)
 
 func _on_defense(action: String) -> void:
 	_apply_defense(action)
@@ -485,10 +509,8 @@ func _go_to_map() -> void:
 # ── UI helpers ────────────────────────────────────────────────────────────────
 
 func _update_enemy_bars() -> void:
-	_enemy_hp_bar.max_value    = _enemy_max_hp
-	_enemy_hp_bar.value        = _enemy_hp
-	_enemy_poise_bar.max_value = _enemy_max_poise
-	_enemy_poise_bar.value     = _enemy_poise
+	_enemy_hp_bar.max_value = _enemy_max_hp
+	_enemy_hp_bar.value     = _enemy_hp
 
 func _update_player_bars() -> void:
 	_player_hp_bar.max_value  = GameManager.max_hp
@@ -497,25 +519,46 @@ func _update_player_bars() -> void:
 	_player_sta_bar.value     = _player_stamina
 	_player_fp_bar.max_value  = GameManager.max_fp
 	_player_fp_bar.value      = _player_fp
-	_player_hp_lbl.text  = "HP %d/%d"  % [_player_hp,      GameManager.max_hp]
-	_player_sta_lbl.text = "STA %d/%d" % [_player_stamina,  GameManager.max_stamina]
-	_player_fp_lbl.text  = "FP %d/%d"  % [_player_fp,       GameManager.max_fp]
+	_player_hp_lbl.text  = "%d / %d"  % [_player_hp,      GameManager.max_hp]
+	_player_fp_lbl.text  = "%d / %d"  % [_player_fp,       GameManager.max_fp]
+	_player_sta_lbl.text = "%d / %d"  % [_player_stamina,  GameManager.max_stamina]
 
 func _log_add(text: String, color: Color = Color.WHITE) -> void:
 	_log.append_text("[color=#%s]%s[/color]\n" % [color.to_html(false), text])
 	_log.scroll_to_line(_log.get_line_count())
 
 func _clear_options() -> void:
-	for child in _options_box.get_children():
-		child.queue_free()
+	for child in _ring_container.get_children():
+		if child != _phase_lbl:
+			child.queue_free()
 
+# Single button (used for end-state labels like "Return to Map")
 func _btn(label: String, callback: Callable, disabled: bool = false) -> void:
+	_clear_options()
 	var b := Button.new()
 	b.text = label
 	b.disabled = disabled
-	b.custom_minimum_size = Vector2(170, 56)
+	b.custom_minimum_size = Vector2(200, 54)
+	b.position = RING_CENTER - Vector2(100, 27)
 	b.pressed.connect(callback)
-	_options_box.add_child(b)
+	_ring_container.add_child(b)
+
+# Ring-menu: items = [{label, callback, disabled?}, ...]
+func _populate_ring(items: Array) -> void:
+	_clear_options()
+	var n := items.size()
+	if n == 0:
+		return
+	for i in range(n):
+		var angle := (float(i) / n) * TAU - PI / 2.0   # first item at top
+		var center := RING_CENTER + Vector2(cos(angle), sin(angle)) * RING_RADIUS
+		var b := Button.new()
+		b.text           = items[i].label
+		b.disabled       = items[i].get("disabled", false)
+		b.custom_minimum_size = Vector2(RING_BTN_W, RING_BTN_H)
+		b.position       = center - Vector2(RING_BTN_W, RING_BTN_H) / 2.0
+		b.pressed.connect(items[i].callback)
+		_ring_container.add_child(b)
 
 # ── UI construction ───────────────────────────────────────────────────────────
 
@@ -525,126 +568,154 @@ func _build_ui() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 0)
-	add_child(root)
-
-	_build_enemy_section(root)
-	_build_log_section(root)
-	_build_options_section(root)
-	_build_player_section(root)
+	_build_player_stats()
+	_build_enemy_section()
+	_build_ring()
+	_build_log()
 	_build_task_popup()
 
-func _build_enemy_section(root: VBoxContainer) -> void:
+# ── Player stats — upper left (HP / FP / STA with Elden Ring colours) ─────────
+
+func _build_player_stats() -> void:
 	var panel := PanelContainer.new()
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 3.0
-	root.add_child(panel)
-
-	var m := _margin_container(panel, 14)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	m.add_child(vbox)
-
-	var header := HBoxContainer.new()
-	vbox.add_child(header)
-
-	_enemy_name_lbl = Label.new()
-	_enemy_name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_enemy_name_lbl.add_theme_font_size_override("font_size", 20)
-	header.add_child(_enemy_name_lbl)
-
-	var hp_lbl_header := Label.new()
-	hp_lbl_header.text = "HP"
-	hp_lbl_header.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	header.add_child(hp_lbl_header)
-
-	_enemy_hp_bar = _progress_bar(Color(0.75, 0.15, 0.1))
-	_enemy_hp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(_enemy_hp_bar)
-
-	var poise_row := HBoxContainer.new()
-	poise_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(poise_row)
-
-	var poise_lbl := Label.new()
-	poise_lbl.text = "POISE"
-	poise_lbl.add_theme_color_override("font_color", Color(0.5, 0.65, 0.8))
-	poise_row.add_child(poise_lbl)
-
-	_enemy_poise_bar = _progress_bar(Color(0.3, 0.5, 0.75))
-	_enemy_poise_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	poise_row.add_child(_enemy_poise_bar)
-
-	_status_bars_box = HBoxContainer.new()
-	_status_bars_box.add_theme_constant_override("separation", 10)
-	vbox.add_child(_status_bars_box)
-
-	_enemy_move_lbl = Label.new()
-	_enemy_move_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.9, 0.45, 0.3))
-	vbox.add_child(_enemy_move_lbl)
-
-func _build_log_section(root: VBoxContainer) -> void:
-	var panel := PanelContainer.new()
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 2.0
-	root.add_child(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	panel.offset_right  = 288
+	panel.offset_bottom = 108
+	panel.offset_left   = 12
+	panel.offset_top    = 12
+	add_child(panel)
 
 	var m := _margin_container(panel, 10)
-	_log = RichTextLabel.new()
-	_log.bbcode_enabled = true
-	_log.scroll_following = true
-	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	m.add_child(_log)
-
-func _build_options_section(root: VBoxContainer) -> void:
-	var panel := PanelContainer.new()
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 3.0
-	root.add_child(panel)
-
-	var m := _margin_container(panel, 12)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 7)
 	m.add_child(vbox)
+
+	var hp_row  := _er_stat_row("HP",  ER_HP)
+	_player_hp_bar  = hp_row[0];  _player_hp_lbl  = hp_row[1]
+	vbox.add_child(hp_row[2])
+
+	var fp_row  := _er_stat_row("FP",  ER_FP)
+	_player_fp_bar  = fp_row[0];  _player_fp_lbl  = fp_row[1]
+	vbox.add_child(fp_row[2])
+
+	var sta_row := _er_stat_row("STA", ER_STA)
+	_player_sta_bar = sta_row[0]; _player_sta_lbl = sta_row[1]
+	vbox.add_child(sta_row[2])
+
+# Returns [ProgressBar, value_label, row_container]
+func _er_stat_row(label_text: String, color: Color) -> Array:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+
+	var name_lbl := Label.new()
+	name_lbl.text = label_text
+	name_lbl.custom_minimum_size = Vector2(34, 0)
+	name_lbl.add_theme_font_size_override("font_size", 13)
+	name_lbl.add_theme_color_override("font_color", color)
+	row.add_child(name_lbl)
+
+	var bar := _progress_bar(color)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.custom_minimum_size.y = 18
+	row.add_child(bar)
+
+	var val := Label.new()
+	val.custom_minimum_size = Vector2(80, 0)
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	val.add_theme_font_size_override("font_size", 11)
+	val.add_theme_color_override("font_color", Color(0.72, 0.72, 0.72))
+	row.add_child(val)
+
+	return [bar, val, row]
+
+# ── Enemy section — upper centre ──────────────────────────────────────────────
+
+func _build_enemy_section() -> void:
+	# Name label
+	_enemy_name_lbl = Label.new()
+	_enemy_name_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_enemy_name_lbl.offset_left   = 300
+	_enemy_name_lbl.offset_right  = -300
+	_enemy_name_lbl.offset_bottom = 30
+	_enemy_name_lbl.offset_top    = 12
+	_enemy_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_enemy_name_lbl.add_theme_font_size_override("font_size", 20)
+	add_child(_enemy_name_lbl)
+
+	# HP bar (red, centred)
+	_enemy_hp_bar = _progress_bar(ER_HP)
+	_enemy_hp_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_enemy_hp_bar.offset_left   = 425
+	_enemy_hp_bar.offset_right  = -425
+	_enemy_hp_bar.offset_top    = 38
+	_enemy_hp_bar.offset_bottom = 58
+	add_child(_enemy_hp_bar)
+
+	# Status buildup bars (below HP)
+	_status_bars_box = HBoxContainer.new()
+	_status_bars_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_status_bars_box.offset_left   = 400
+	_status_bars_box.offset_right  = -400
+	_status_bars_box.offset_top    = 62
+	_status_bars_box.offset_bottom = 78
+	_status_bars_box.add_theme_constant_override("separation", 10)
+	add_child(_status_bars_box)
+
+	# Simple enemy visual placeholder
+	_enemy_visual = ColorRect.new()
+	_enemy_visual.color = Color(0.14, 0.08, 0.08)
+	_enemy_visual.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_enemy_visual.offset_left   = 530
+	_enemy_visual.offset_right  = -530
+	_enemy_visual.offset_top    = 85
+	_enemy_visual.offset_bottom = 260
+	add_child(_enemy_visual)
+
+	# Current enemy move description (shown during enemy's turn)
+	_enemy_move_lbl = Label.new()
+	_enemy_move_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_enemy_move_lbl.offset_left   = 300
+	_enemy_move_lbl.offset_right  = -300
+	_enemy_move_lbl.offset_top    = 265
+	_enemy_move_lbl.offset_bottom = 310
+	_enemy_move_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_enemy_move_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_enemy_move_lbl.add_theme_font_size_override("font_size", 13)
+	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.9, 0.45, 0.3))
+	add_child(_enemy_move_lbl)
+
+# ── Ring menu — centre ────────────────────────────────────────────────────────
+
+func _build_ring() -> void:
+	# Full-rect container, mouse-transparent — buttons positioned absolutely inside
+	_ring_container = Control.new()
+	_ring_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ring_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_ring_container)
 
 	_phase_lbl = Label.new()
 	_phase_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_phase_lbl.add_theme_font_size_override("font_size", 16)
-	vbox.add_child(_phase_lbl)
+	_phase_lbl.add_theme_font_size_override("font_size", 17)
+	_phase_lbl.custom_minimum_size = Vector2(300, 0)
+	_phase_lbl.position = RING_CENTER - Vector2(150, 26)
+	_ring_container.add_child(_phase_lbl)
 
-	_options_box = HFlowContainer.new()
-	_options_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_options_box.add_theme_constant_override("h_separation", 10)
-	_options_box.add_theme_constant_override("v_separation", 8)
-	vbox.add_child(_options_box)
+# ── Battle log — bottom left ──────────────────────────────────────────────────
 
-func _build_player_section(root: VBoxContainer) -> void:
+func _build_log() -> void:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size.y = 68
-	root.add_child(panel)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.offset_top    = -195
+	panel.offset_right  = 435
+	panel.offset_bottom = -10
+	add_child(panel)
 
 	var m := _margin_container(panel, 8)
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 24)
-	m.add_child(hbox)
-
-	var hp_col := _stat_column("HP", Color(0.75, 0.15, 0.1))
-	_player_hp_bar  = hp_col[0]
-	_player_hp_lbl  = hp_col[1]
-	hbox.add_child(hp_col[2])
-
-	var sta_col := _stat_column("STA", Color(0.85, 0.65, 0.1))
-	_player_sta_bar = sta_col[0]
-	_player_sta_lbl = sta_col[1]
-	hbox.add_child(sta_col[2])
-
-	var fp_col := _stat_column("FP", Color(0.2, 0.4, 0.85))
-	_player_fp_bar  = fp_col[0]
-	_player_fp_lbl  = fp_col[1]
-	hbox.add_child(fp_col[2])
+	_log = RichTextLabel.new()
+	_log.bbcode_enabled    = true
+	_log.scroll_following  = true
+	_log.add_theme_font_size_override("font_size", 11)
+	m.add_child(_log)
 
 func _build_task_popup() -> void:
 	_task_layer = CanvasLayer.new()
@@ -766,18 +837,3 @@ func _progress_bar(color: Color) -> ProgressBar:
 	bar.add_theme_color_override("fill_color_modulate", color)
 	return bar
 
-# Returns [ProgressBar, Label, container_node]
-func _stat_column(label_text: String, color: Color) -> Array:
-	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 2)
-
-	var lbl := Label.new()
-	lbl.text = label_text + " 0/0"
-	lbl.add_theme_font_size_override("font_size", 11)
-	col.add_child(lbl)
-
-	var bar := _progress_bar(color)
-	col.add_child(bar)
-
-	return [bar, lbl, col]
