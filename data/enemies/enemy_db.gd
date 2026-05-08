@@ -14,6 +14,7 @@ const ENEMIES := {
 		"rune_reward": 50,
 		"is_boss": false,
 		"drops": [],
+		"status_multipliers": { "bleed": 1.5, "frost": 1.2 },
 		"moveset": [
 			{
 				"id": "mindless_scroll",
@@ -41,6 +42,7 @@ const ENEMIES := {
 			# Dagger: reward for learning to fight back fast and sharp
 			{"id": "dagger", "first_kill_chance": 1.0, "repeat_chance": 0.0},
 		],
+		"status_multipliers": { "madness": 1.4, "bleed": 0.8 },
 		"moveset": [
 			{
 				"id": "public_criticism",
@@ -74,6 +76,7 @@ const ENEMIES := {
 			# Greatsword: reward for pushing through the hardest creative block
 			{"id": "greatsword", "first_kill_chance": 1.0, "repeat_chance": 0.0},
 		],
+		"status_multipliers": { "scarlet_rot": 1.3, "frost": 1.2 },
 		"moveset": [
 			{
 				"id": "infinite_loop",
@@ -106,6 +109,7 @@ const ENEMIES := {
 		"is_remembrance": true,
 		"unlocks_area": "second_area",
 		"drops": [],  # area unlock is the reward; Remembrance weapon added in future phase
+		"status_multipliers": { "madness": 0.5, "bleed": 0.7, "frost": 0.8, "scarlet_rot": 0.9 },
 		"moveset": [
 			{
 				"id": "revision_spiral",

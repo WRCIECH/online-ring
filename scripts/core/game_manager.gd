@@ -43,6 +43,11 @@ var items: Array[Dictionary] = []
 # ── Combat ───────────────────────────────────────────────────────────────────
 var pending_encounter: Dictionary = {}
 
+# ── FAI / faith system ────────────────────────────────────────────────────────
+# 0–100. Drops when player uses incantations without genuine belief.
+# Recovers when player confirms faith honestly. Affects FAI incantation damage.
+var faith_integrity: int = 100
+
 # ── Signals ─────────────────────────────────────────────────────────────────
 signal stats_changed
 signal hp_changed(new_hp: int, max_hp: int)
@@ -178,6 +183,7 @@ func get_save_data() -> Dictionary:
 		"equipped_talismans": equipped_talismans.duplicate(),
 		"weapons": weapons.duplicate(),
 		"items": items.duplicate(),
+		"faith_integrity": faith_integrity,
 	}
 
 func load_save_data(data: Dictionary) -> void:
@@ -197,6 +203,7 @@ func load_save_data(data: Dictionary) -> void:
 	equipped_talismans = data.get("equipped_talismans", ["", ""])
 	weapons = data.get("weapons", [])
 	items = data.get("items", [])
+	faith_integrity = data.get("faith_integrity", 100)
 	recalculate_derived_stats()
 	current_hp = data.get("current_hp", max_hp)
 	current_fp = data.get("current_fp", max_fp)

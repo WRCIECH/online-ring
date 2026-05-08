@@ -30,6 +30,12 @@ var _player_fp: int         = 0
 var _pending_move: Dictionary   = {}
 var _pending_weapon: Dictionary = {}
 
+# ── Status effects state ──────────────────────────────────────────────────────
+var _enemy_status_buildup: Dictionary = {}  # effect_name -> float buildup
+var _rot_turns_remaining: int = 0
+var _enemy_skip_turn: bool = false
+var _faith_crack: bool = false  # true if incantation used without faith confirmation
+
 # ── UI refs ───────────────────────────────────────────────────────────────────
 var _enemy_name_lbl:  Label
 var _enemy_hp_bar:    ProgressBar
@@ -51,6 +57,9 @@ var _task_move_lbl:    Label
 var _task_desc_lbl:    Label
 var _task_check:       CheckBox
 var _task_confirm_btn: Button
+var _faith_check_row:  Control   # shown only for incantation moves
+var _faith_check:      CheckBox
+var _status_bars_box:  HBoxContainer
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +92,9 @@ func _init_combat() -> void:
 
 	_player_first = GameManager.stats["DEX"] >= _enemy.initiative
 	_new_round    = true
+	_enemy_status_buildup = {}
+	_rot_turns_remaining  = 0
+	_enemy_skip_turn      = false
 
 	_enemy_name_lbl.text = _enemy.name
 	_update_enemy_bars()
@@ -119,6 +131,25 @@ func _enter_phase(new_phase: Phase) -> void:
 
 		Phase.ENEMY_ATTACK:
 			_new_round = true
+			# Scarlet Rot DOT
+			if _rot_turns_remaining > 0:
+				var rot_dmg: int = int(_enemy_max_hp * 0.06)
+				_enemy_hp = maxi(0, _enemy_hp - rot_dmg)
+				_rot_turns_remaining -= 1
+				_update_enemy_bars()
+				_log_add("Scarlet Rot corrodes — %d damage (%d turns left)." % [rot_dmg, _rot_turns_remaining],
+					StatusEffects.COLORS["scarlet_rot"])
+				if _enemy_hp <= 0:
+					_enter_phase(Phase.VICTORY)
+					return
+			# Frost skip
+			if _enemy_skip_turn:
+				_enemy_skip_turn = false
+				_log_add("Enemy is frozen by Frost — they cannot act this turn!", StatusEffects.COLORS["frost"])
+				await get_tree().create_timer(1.2).timeout
+				_enter_phase(Phase.PLAYER_ATTACK)
+				return
+			# Normal flow
 			_choose_enemy_move()
 			_timer = DECISION_TIME
 			_timer_bar.show()
@@ -174,6 +205,8 @@ func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
 	_task_desc_lbl.text = move.real_task
 	_task_check.button_pressed = false
 	_task_confirm_btn.disabled = true
+	_faith_check_row.visible = move.get("is_incantation", false)
+	_faith_check.button_pressed = false
 	_task_layer.show()
 	_phase = Phase.TASK_CONFIRM   # pause timer
 
@@ -186,6 +219,15 @@ func _on_task_check_toggled(checked: bool) -> void:
 
 func _on_task_confirmed() -> void:
 	_task_layer.hide()
+	if _pending_move.get("is_incantation", false):
+		if _faith_check.button_pressed:
+			GameManager.faith_integrity = mini(100, GameManager.faith_integrity + 5)
+			_faith_crack = false
+		else:
+			GameManager.faith_integrity = maxi(0, GameManager.faith_integrity - 10)
+			_faith_crack = true
+	else:
+		_faith_crack = false
 	_execute_attack()
 
 func _on_task_back() -> void:
@@ -204,12 +246,31 @@ func _execute_attack() -> void:
 
 	var dmg   := WeaponDB.calc_damage(move, weapon, GameManager.stats)
 	var pdmg  : int = move.get("poise_damage", 10)
+
+	# Faith integrity penalty for incantations used without genuine belief
+	if _faith_crack:
+		var faith_mult: float = maxf(0.3, GameManager.faith_integrity / 100.0)
+		dmg = int(dmg * faith_mult)
+		_log_add("Faith wavers — incantation at %d%% power." % GameManager.faith_integrity,
+			Color(0.65, 0.40, 0.85))
+		_faith_crack = false
+
 	_enemy_hp    -= dmg
 	_enemy_poise -= pdmg
 	_update_enemy_bars()
 
 	SoundManager.play(SoundManager.Sound.HIT)
 	_log_add("You use [b]%s[/b] — %d damage!" % [move.name, dmg], Color.WHITE)
+
+	# Status buildup
+	var buildup_map: Dictionary = move.get("status_buildup", {})
+	for effect in buildup_map:
+		var amount: float = float(buildup_map[effect])
+		var mult: float = _enemy.get("status_multipliers", {}).get(effect, 1.0)
+		_enemy_status_buildup[effect] = _enemy_status_buildup.get(effect, 0.0) + amount * mult
+		if _enemy_status_buildup[effect] >= StatusEffects.THRESHOLDS.get(effect, 100.0):
+			_trigger_status(effect)
+	_update_status_bars()
 
 	if _enemy_hp <= 0:
 		_enter_phase(Phase.VICTORY)
@@ -303,6 +364,68 @@ func _apply_defense(action: String) -> void:
 		_enter_phase(Phase.PLAYER_ATTACK)
 
 # ── Special phases ────────────────────────────────────────────────────────────
+
+func _trigger_status(effect: String) -> void:
+	_enemy_status_buildup[effect] = 0.0
+	var color: Color = StatusEffects.COLORS.get(effect, Color.WHITE)
+	match effect:
+		"bleed":
+			var dmg: int = int(_enemy_max_hp * 0.20)
+			_enemy_hp -= dmg
+			_log_add("BLEED erupts! Viral spike — %d damage!" % dmg, color)
+			SoundManager.play(SoundManager.Sound.HIT)
+		"madness":
+			var e_dmg: int = int(_enemy_max_hp * 0.15)
+			var p_dmg: int = int(GameManager.max_hp * 0.08)
+			_enemy_hp -= e_dmg
+			_player_hp -= p_dmg
+			_update_player_bars()
+			_log_add("MADNESS erupts! %d to enemy — and %d reputation damage to you." % [e_dmg, p_dmg], color)
+			SoundManager.play(SoundManager.Sound.HIT)
+		"frost":
+			var dmg: int = int(_enemy_max_hp * 0.18)
+			_enemy_hp -= dmg
+			_enemy_skip_turn = true
+			_log_add("FROST shatters! %d damage — enemy loses their next turn." % dmg, color)
+		"scarlet_rot":
+			_rot_turns_remaining = 3
+			_log_add("SCARLET ROT spreads! Enemy takes 6%% HP for 3 turns.", color)
+	_update_enemy_bars()
+	_update_status_bars()
+	if _enemy_hp <= 0:
+		_enter_phase(Phase.VICTORY)
+
+func _update_status_bars() -> void:
+	for child in _status_bars_box.get_children():
+		child.queue_free()
+	for effect in _enemy_status_buildup:
+		var buildup: float = _enemy_status_buildup.get(effect, 0.0)
+		if buildup <= 0.0:
+			continue
+		var color: Color  = StatusEffects.COLORS.get(effect, Color.WHITE)
+		var label: String = StatusEffects.LABELS.get(effect, effect)
+		var threshold: float = StatusEffects.THRESHOLDS.get(effect, 100.0)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 2)
+		_status_bars_box.add_child(col)
+		var lbl := Label.new()
+		lbl.text = label
+		lbl.add_theme_font_size_override("font_size", 10)
+		lbl.add_theme_color_override("font_color", color)
+		col.add_child(lbl)
+		var bar := ProgressBar.new()
+		bar.max_value = threshold
+		bar.value     = buildup
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(68, 8)
+		col.add_child(bar)
+	# Show Scarlet Rot active turns if running
+	if _rot_turns_remaining > 0:
+		var rot_lbl := Label.new()
+		rot_lbl.text = "Rot: %d turns" % _rot_turns_remaining
+		rot_lbl.add_theme_font_size_override("font_size", 10)
+		rot_lbl.add_theme_color_override("font_color", StatusEffects.COLORS["scarlet_rot"])
+		_status_bars_box.add_child(rot_lbl)
 
 func _handle_stagger() -> void:
 	_enemy_poise = _enemy_max_poise
@@ -480,6 +603,10 @@ func _build_enemy_section(root: VBoxContainer) -> void:
 	_enemy_poise_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	poise_row.add_child(_enemy_poise_bar)
 
+	_status_bars_box = HBoxContainer.new()
+	_status_bars_box.add_theme_constant_override("separation", 10)
+	vbox.add_child(_status_bars_box)
+
 	_enemy_move_lbl = Label.new()
 	_enemy_move_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.9, 0.45, 0.3))
@@ -602,6 +729,31 @@ func _build_task_popup() -> void:
 	_task_check.text = "I completed this task"
 	_task_check.toggled.connect(_on_task_check_toggled)
 	vbox.add_child(_task_check)
+
+	# Faith check — only shown for FAI incantations
+	_faith_check_row = VBoxContainer.new()
+	_faith_check_row.add_theme_constant_override("separation", 6)
+	_faith_check_row.visible = false
+	vbox.add_child(_faith_check_row)
+
+	var faith_sep := HSeparator.new()
+	_faith_check_row.add_child(faith_sep)
+
+	var faith_lbl := Label.new()
+	faith_lbl.text = "Faith integrity check:"
+	faith_lbl.add_theme_font_size_override("font_size", 12)
+	faith_lbl.add_theme_color_override("font_color", Color(0.65, 0.50, 0.85))
+	_faith_check_row.add_child(faith_lbl)
+
+	_faith_check = CheckBox.new()
+	_faith_check.text = "This genuinely reflects what I believe — not just what's safe or trending."
+	_faith_check_row.add_child(_faith_check)
+
+	var faith_hint := Label.new()
+	faith_hint.text = "Unchecked: reduced damage + -10 faith integrity. Checked: +5 faith integrity."
+	faith_hint.add_theme_font_size_override("font_size", 11)
+	faith_hint.add_theme_color_override("font_color", Color(0.50, 0.50, 0.50))
+	_faith_check_row.add_child(faith_hint)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 12)
