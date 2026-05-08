@@ -23,6 +23,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 GameManager="*res://scripts/core/game_manager.gd"
 SaveManager="*res://scripts/core/save_manager.gd"
+SettingsManager="*res://scripts/core/settings_manager.gd"
 
 [display]
 

@@ -99,9 +99,10 @@ var _info_name:     Label
 var _info_desc:     Label
 var _info_enter:    Button
 
-var _level_up_screen: LevelUpScreen
-var _equip_screen:    EquipScreen
-var _ui_layer:        CanvasLayer
+var _level_up_screen:  LevelUpScreen
+var _equip_screen:     EquipScreen
+var _settings_screen:  SettingsScreen
+var _ui_layer:         CanvasLayer
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ func _ready() -> void:
 	_build_ui_layer()
 	_build_locations()
 	_build_level_up_screen()
+	_build_settings_screen()
 	_refresh_ui()
 
 	get_viewport().size_changed.connect(queue_redraw)
@@ -181,6 +183,15 @@ func _build_ui_layer() -> void:
 
 	_hp_label = Label.new()
 	hbox.add_child(_hp_label)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(spacer)
+
+	var settings_btn := Button.new()
+	settings_btn.text = "Settings"
+	settings_btn.pressed.connect(func(): _settings_screen.show_screen())
+	hbox.add_child(settings_btn)
 
 	# Info panel (right side, hidden until a node is clicked)
 	_info_panel = PanelContainer.new()
@@ -283,6 +294,10 @@ func _build_level_up_screen() -> void:
 	_level_up_screen = LevelUpScreen.new()
 	_level_up_screen.equip_screen = _equip_screen
 	add_child(_level_up_screen)
+
+func _build_settings_screen() -> void:
+	_settings_screen = SettingsScreen.new()
+	add_child(_settings_screen)
 
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
