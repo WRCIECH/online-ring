@@ -48,7 +48,7 @@ var _faith_crack: bool = false  # true if incantation used without faith confirm
 # ── UI refs ───────────────────────────────────────────────────────────────────
 var _enemy_name_lbl:  Label
 var _enemy_hp_bar:    ProgressBar
-var _enemy_visual:    ColorRect    # simple placeholder until real sprites exist
+var _enemy_visual:    EnemyDisplay
 var _enemy_move_lbl:  Label
 var _log:             RichTextLabel
 var _phase_lbl:       Label
@@ -99,13 +99,7 @@ func _init_combat() -> void:
 	_enemy_skip_turn      = false
 
 	_enemy_name_lbl.text = _enemy.name
-	# Tint the visual placeholder based on enemy tier
-	if _enemy.get("is_remembrance", false):
-		_enemy_visual.color = Color(0.18, 0.05, 0.22)   # dark purple
-	elif _enemy.get("is_boss", false):
-		_enemy_visual.color = Color(0.22, 0.05, 0.05)   # dark red
-	else:
-		_enemy_visual.color = Color(0.10, 0.09, 0.12)   # dark grey-blue
+	_enemy_visual.set_enemy(enemy_id)
 	_update_enemy_bars()
 	_update_player_bars()
 
@@ -627,8 +621,7 @@ func _build_ring() -> void:
 	_ring_container.add_child(_phase_lbl)
 
 	# ── Enemy visual (small placeholder, centre of ring) ──────────────────────
-	_enemy_visual = ColorRect.new()
-	_enemy_visual.color = Color(0.14, 0.08, 0.08)
+	_enemy_visual = EnemyDisplay.new()
 	_enemy_visual.custom_minimum_size = Vector2(100, 120)
 	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 168)
 	_ring_container.add_child(_enemy_visual)
