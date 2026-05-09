@@ -70,9 +70,10 @@ var _faith_check_row:  Control   # shown only for incantation moves
 var _faith_check:      CheckBox
 var _status_bars_box:  HBoxContainer
 
-var _action_popup:      PanelContainer
-var _popup_body_lbl:    Label
-var _attack_popup_text: String = ""
+var _action_popup:   PanelContainer
+var _popup_body_lbl: Label
+var _r1_popup_text:  String = ""
+var _r2_popup_text:  String = ""
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -113,20 +114,21 @@ func _init_combat() -> void:
 	_weapon_name_lbl.text = wdata.get("name", wid)
 	_weapon_display.set_weapon(wid)
 
-	# Build attack popup text shown when hovering the Attack legend row
+	# Build per-move popup texts for the legend rows
 	var moveset := WeaponDB.get_moveset(wdata)
-	_attack_popup_text = ""
+	_r1_popup_text = ""
+	_r2_popup_text = ""
 	if moveset.size() >= 1:
 		var m0: Dictionary = moveset[0]
 		var c0 := "%d STA" % m0.get("stamina_cost", 0) if m0.get("stamina_cost", 0) > 0 \
 				  else "%d FP" % m0.get("fp_cost", 0)
-		_attack_popup_text = "LMB  hold 2 s  →  %s\n%s\nCost: %s" % \
+		_r1_popup_text = "LMB  hold 2 s\n%s\n\n%s\n\nCost: %s" % \
 				[m0.get("name", ""), m0.get("real_task", ""), c0]
 	if moveset.size() >= 2:
 		var m1: Dictionary = moveset[1]
 		var c1 := "%d STA" % m1.get("stamina_cost", 0) if m1.get("stamina_cost", 0) > 0 \
 				  else "%d FP" % m1.get("fp_cost", 0)
-		_attack_popup_text += "\n\nRMB  hold 2 s  →  %s\n%s\nCost: %s" % \
+		_r2_popup_text = "RMB  hold 2 s\n%s\n\n%s\n\nCost: %s" % \
 				[m1.get("name", ""), m1.get("real_task", ""), c1]
 
 	# Recover runes if this is the death location
@@ -734,9 +736,11 @@ func _build_action_legend() -> void:
 	vbox.add_child(header)
 	vbox.add_child(HSeparator.new())
 
-	# Each entry: [display text, popup text — "" means use _attack_popup_text]
+	# Each entry: [display text, popup sentinel or literal text]
+	# "_r1_" / "_r2_" are sentinels resolved to the weapon-specific texts at runtime.
 	var entries: Array = [
-		["Attack   LMB · RMB  (2 s)", ""],
+		["LMB — R1  (hold 2 s)", "_r1_"],
+		["RMB — R2  (hold 2 s)", "_r2_"],
 		["Roll",     "Roll\n0 damage.   Costs %d STA." % STA_ROLL],
 		["Block",    "Block\nPartial damage.   Costs %d STA." % STA_BLOCK],
 		["Parry",    "Parry\n0 damage.   Costs %d STA.\nCounter window: react just before the hit." % STA_PARRY],
@@ -745,15 +749,20 @@ func _build_action_legend() -> void:
 	]
 
 	for i in range(entries.size()):
-		var display: String  = entries[i][0]
-		var tip: String      = entries[i][1]  # "" = attack, use _attack_popup_text
+		var display: String = entries[i][0]
+		var tip: String     = entries[i][1]
 
 		var row_lbl := Label.new()
 		row_lbl.text = display
 		row_lbl.add_theme_font_size_override("font_size", 11)
 		row_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
 		row_lbl.mouse_entered.connect(func():
-			_popup_body_lbl.text = _attack_popup_text if tip.is_empty() else tip
+			if tip == "_r1_":
+				_popup_body_lbl.text = _r1_popup_text
+			elif tip == "_r2_":
+				_popup_body_lbl.text = _r2_popup_text
+			else:
+				_popup_body_lbl.text = tip
 			# Snap popup vertically to this row
 			var ry: float = row_lbl.get_global_rect().position.y
 			var ph: float = 180.0
@@ -765,8 +774,8 @@ func _build_action_legend() -> void:
 		row_lbl.mouse_exited.connect(func(): _action_popup.visible = false)
 		vbox.add_child(row_lbl)
 
-		if i == 0:
-			vbox.add_child(HSeparator.new())  # visual split between attack and defense
+		if i == 1:
+			vbox.add_child(HSeparator.new())  # split between attack rows and defense rows
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
