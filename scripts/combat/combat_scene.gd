@@ -70,6 +70,10 @@ var _faith_check_row:  Control   # shown only for incantation moves
 var _faith_check:      CheckBox
 var _status_bars_box:  HBoxContainer
 
+var _action_popup:     PanelContainer
+var _popup_r1_lbl:     Label
+var _popup_r2_lbl:     Label
+
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
@@ -108,6 +112,21 @@ func _init_combat() -> void:
 	var wdata: Dictionary = WeaponDB.WEAPONS.get(wid, WeaponDB.WEAPONS["writers_quill"])
 	_weapon_name_lbl.text = wdata.get("name", wid)
 	_weapon_display.set_weapon(wid)
+
+	# Update action legend popup with this weapon's moves
+	var moveset := WeaponDB.get_moveset(wdata)
+	if moveset.size() >= 1:
+		var m0: Dictionary = moveset[0]
+		var c0 := ("%d STA" % m0.get("stamina_cost", 0)) if m0.get("stamina_cost", 0) > 0 \
+				  else ("%d FP" % m0.get("fp_cost", 0))
+		_popup_r1_lbl.text = "LMB  2 s  →  %s\n  %s\n  Cost: %s" % \
+				[m0.get("name", ""), m0.get("real_task", ""), c0]
+	if moveset.size() >= 2:
+		var m1: Dictionary = moveset[1]
+		var c1 := ("%d STA" % m1.get("stamina_cost", 0)) if m1.get("stamina_cost", 0) > 0 \
+				  else ("%d FP" % m1.get("fp_cost", 0))
+		_popup_r2_lbl.text = "RMB  2 s  →  %s\n  %s\n  Cost: %s" % \
+				[m1.get("name", ""), m1.get("real_task", ""), c1]
 
 	# Recover runes if this is the death location
 	var runes_here: int = GameManager.runes_at_death
@@ -174,7 +193,7 @@ func _enter_phase(new_phase: Phase) -> void:
 
 func _show_player_options() -> void:
 	_clear_options()
-	_enemy_move_lbl.text = "Hold LMB — R1     Hold RMB — R2"
+	_enemy_move_lbl.text = ""
 	_enemy_visual.set_interactive(true)
 
 func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
@@ -571,10 +590,11 @@ func _build_ui() -> void:
 	add_child(bg)
 
 	_build_player_stats()
-	_build_ring()         # enemy info lives inside the ring
+	_build_ring()            # enemy info lives inside the ring
 	_build_equipment_slots() # bottom-left
-	_build_log()          # right side
+	_build_log()             # right side
 	_build_task_popup()
+	_build_action_legend()   # last — popup draws on top of everything
 
 # ── Player stats — upper left (colour-coded strips only, no text) ─────────────
 
@@ -628,24 +648,29 @@ func _build_ring() -> void:
 	# Stack order: name → hp bar → visual → status → move desc
 	# Total stack height ≈ 166 px; centred on RING_CENTER.y
 
+	# Visual is centred on RING_CENTER; name + HP bar float above it.
+	# Visual: 130 × 150 px → top at RING_CENTER.y - 75
+	# HP bar: 16 px + 8 px gap → top at RING_CENTER.y - 99
+	# Name:   22 px + 4 px gap → top at RING_CENTER.y - 125
+
 	# ── Enemy name ────────────────────────────────────────────────────────────
 	_enemy_name_lbl = Label.new()
 	_enemy_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_enemy_name_lbl.add_theme_font_size_override("font_size", 16)
 	_enemy_name_lbl.custom_minimum_size = Vector2(220, 0)
-	_enemy_name_lbl.position = Vector2(RING_CENTER.x - 110, RING_CENTER.y - 83)
+	_enemy_name_lbl.position = Vector2(RING_CENTER.x - 110, RING_CENTER.y - 125)
 	_ring_container.add_child(_enemy_name_lbl)
 
 	# ── Enemy HP bar ──────────────────────────────────────────────────────────
 	_enemy_hp_bar = _progress_bar(ER_HP)
 	_enemy_hp_bar.custom_minimum_size = Vector2(200, 16)
-	_enemy_hp_bar.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 57)
+	_enemy_hp_bar.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 99)
 	_ring_container.add_child(_enemy_hp_bar)
 
-	# ── Enemy visual ──────────────────────────────────────────────────────────
+	# ── Enemy visual — centred on RING_CENTER ────────────────────────────────
 	_enemy_visual = EnemyDisplay.new()
-	_enemy_visual.custom_minimum_size = Vector2(100, 120)
-	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 37)
+	_enemy_visual.custom_minimum_size = Vector2(130, 150)
+	_enemy_visual.position = Vector2(RING_CENTER.x - 65, RING_CENTER.y - 75)
 	_enemy_visual.r1_triggered.connect(_on_r1_triggered)
 	_enemy_visual.r2_triggered.connect(_on_r2_triggered)
 	_ring_container.add_child(_enemy_visual)
@@ -665,6 +690,102 @@ func _build_ring() -> void:
 	_enemy_move_lbl.custom_minimum_size = Vector2(280, 0)
 	_enemy_move_lbl.position = Vector2(RING_CENTER.x - 140, RING_CENTER.y + 103)
 	_ring_container.add_child(_enemy_move_lbl)
+
+# ── Action legend — left side between stat bars and equipment ─────────────────
+
+func _build_action_legend() -> void:
+	# ── Compact panel (always visible) ───────────────────────────────────────
+	var outer := PanelContainer.new()
+	outer.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	outer.offset_left   = 12
+	outer.offset_right  = 272
+	outer.offset_top    = 96
+	outer.offset_bottom = 200
+	add_child(outer)
+
+	var m := _margin_container(outer, 8)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 5)
+	m.add_child(vbox)
+
+	var header := Label.new()
+	header.text = "ACTIONS  — hover for details"
+	header.add_theme_font_size_override("font_size", 10)
+	header.add_theme_color_override("font_color", Color(0.48, 0.45, 0.40))
+	vbox.add_child(header)
+
+	vbox.add_child(HSeparator.new())
+
+	for row: Array in [
+		["Attack", "LMB · RMB   (hold 2 s on enemy)"],
+		["Defend", "Roll  ·  Block  ·  Parry"],
+		["       ", "Take Hit  ·  Flee"],
+	]:
+		var lbl := Label.new()
+		lbl.text = "%-8s  %s" % [row[0], row[1]]
+		lbl.add_theme_font_size_override("font_size", 11)
+		vbox.add_child(lbl)
+
+	outer.mouse_entered.connect(func(): _action_popup.visible = true)
+	outer.mouse_exited.connect(func(): _action_popup.visible  = false)
+
+	# ── Hover popup (draws on top because added last to root) ─────────────────
+	_action_popup = PanelContainer.new()
+	_action_popup.anchor_left   = 0.0
+	_action_popup.anchor_right  = 0.0
+	_action_popup.anchor_top    = 0.0
+	_action_popup.anchor_bottom = 0.0
+	_action_popup.offset_left   = 282
+	_action_popup.offset_right  = 634
+	_action_popup.offset_top    = 96
+	_action_popup.offset_bottom = 390
+	_action_popup.visible       = false
+	_action_popup.mouse_filter  = Control.MOUSE_FILTER_IGNORE
+	add_child(_action_popup)
+
+	var pm    := _margin_container(_action_popup, 10)
+	var pvbox := VBoxContainer.new()
+	pvbox.add_theme_constant_override("separation", 7)
+	pm.add_child(pvbox)
+
+	# Attack section
+	var atk_hdr := Label.new()
+	atk_hdr.text = "ATTACK — hover the enemy then hold"
+	atk_hdr.add_theme_font_size_override("font_size", 11)
+	atk_hdr.add_theme_color_override("font_color", Color(0.80, 0.65, 0.25))
+	pvbox.add_child(atk_hdr)
+
+	_popup_r1_lbl = Label.new()
+	_popup_r1_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_popup_r1_lbl.add_theme_font_size_override("font_size", 11)
+	pvbox.add_child(_popup_r1_lbl)
+
+	_popup_r2_lbl = Label.new()
+	_popup_r2_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_popup_r2_lbl.add_theme_font_size_override("font_size", 11)
+	pvbox.add_child(_popup_r2_lbl)
+
+	pvbox.add_child(HSeparator.new())
+
+	# Defense section
+	var def_hdr := Label.new()
+	def_hdr.text = "DEFEND — ring buttons on enemy's turn"
+	def_hdr.add_theme_font_size_override("font_size", 11)
+	def_hdr.add_theme_color_override("font_color", Color(0.45, 0.58, 0.72))
+	pvbox.add_child(def_hdr)
+
+	for row: Array in [
+		["Roll",     "0 damage — costs %d STA" % STA_ROLL],
+		["Block",    "partial damage — costs %d STA" % STA_BLOCK],
+		["Parry",    "0 damage — costs %d STA" % STA_PARRY],
+		["Take Hit", "full damage — free"],
+		["Flee",     "retreat from combat (not vs. bosses)"],
+	]:
+		var lbl := Label.new()
+		lbl.text = "  %-10s — %s" % [row[0], row[1]]
+		lbl.add_theme_font_size_override("font_size", 11)
+		lbl.add_theme_color_override("font_color", Color(0.68, 0.65, 0.60))
+		pvbox.add_child(lbl)
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
