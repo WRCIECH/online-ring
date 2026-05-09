@@ -70,10 +70,12 @@ var _faith_check_row:  Control   # shown only for incantation moves
 var _faith_check:      CheckBox
 var _status_bars_box:  HBoxContainer
 
-var _action_popup:   PanelContainer
-var _popup_body_lbl: Label
-var _r1_popup_text:  String = ""
-var _r2_popup_text:  String = ""
+var _action_popup:    PanelContainer
+var _popup_body_lbl:  Label
+var _r1_popup_text:   String = ""
+var _r2_popup_text:   String = ""
+var _legend_atk_grp:  VBoxContainer
+var _legend_def_grp:  VBoxContainer
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -151,6 +153,7 @@ func _init_combat() -> void:
 func _enter_phase(new_phase: Phase) -> void:
 	_phase = new_phase
 	_enemy_visual.set_interactive(false)
+	_update_legend_visibility()
 	match new_phase:
 		Phase.PLAYER_ATTACK:
 			if _new_round:
@@ -260,6 +263,7 @@ func _on_task_confirmed() -> void:
 func _on_task_back() -> void:
 	_task_layer.hide()
 	_phase = Phase.PLAYER_ATTACK
+	_update_legend_visibility()
 	_enemy_visual.set_interactive(true)
 
 func _execute_attack() -> void:
@@ -584,6 +588,14 @@ func _populate_ring(items: Array) -> void:
 		b.pressed.connect(items[i].callback)
 		_buttons_container.add_child(b)
 
+func _update_legend_visibility() -> void:
+	var player_turn := _phase in [Phase.PLAYER_ATTACK, Phase.TASK_CONFIRM, Phase.ENEMY_STAGGERED]
+	var enemy_turn  := _phase == Phase.ENEMY_ATTACK
+	_legend_atk_grp.visible = player_turn
+	_legend_def_grp.visible = enemy_turn
+	if not player_turn and not enemy_turn:
+		_action_popup.visible = false  # clear any open tooltip
+
 # ── UI construction ───────────────────────────────────────────────────────────
 
 func _build_ui() -> void:
@@ -736,46 +748,56 @@ func _build_action_legend() -> void:
 	vbox.add_child(header)
 	vbox.add_child(HSeparator.new())
 
-	# Each entry: [display text, popup sentinel or literal text]
-	# "_r1_" / "_r2_" are sentinels resolved to the weapon-specific texts at runtime.
-	var entries: Array = [
-		["LMB — R1  (hold 2 s)", "_r1_"],
-		["RMB — R2  (hold 2 s)", "_r2_"],
-		["Roll",     "Roll\n0 damage.   Costs %d STA." % STA_ROLL],
-		["Block",    "Block\nPartial damage.   Costs %d STA." % STA_BLOCK],
-		["Parry",    "Parry\n0 damage.   Costs %d STA.\nCounter window: react just before the hit." % STA_PARRY],
-		["Take Hit", "Take Hit\nFull damage, no stamina cost."],
-		["Flee",     "Flee\nRetreat from combat — no runes gained.\nNot available against bosses."],
-	]
+	# ── Attack group (visible only on player's turn) ──────────────────────────
+	_legend_atk_grp = VBoxContainer.new()
+	_legend_atk_grp.add_theme_constant_override("separation", 2)
+	_legend_atk_grp.visible = false
+	vbox.add_child(_legend_atk_grp)
 
-	for i in range(entries.size()):
-		var display: String = entries[i][0]
-		var tip: String     = entries[i][1]
+	_legend_row(_legend_atk_grp, "LMB — R1  (hold 2 s)", "_r1_")
+	_legend_row(_legend_atk_grp, "RMB — R2  (hold 2 s)", "_r2_")
 
-		var row_lbl := Label.new()
-		row_lbl.text = display
-		row_lbl.add_theme_font_size_override("font_size", 11)
-		row_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
-		row_lbl.mouse_entered.connect(func():
-			if tip == "_r1_":
-				_popup_body_lbl.text = _r1_popup_text
-			elif tip == "_r2_":
-				_popup_body_lbl.text = _r2_popup_text
-			else:
-				_popup_body_lbl.text = tip
-			# Snap popup vertically to this row
-			var ry: float = row_lbl.get_global_rect().position.y
-			var ph: float = 180.0
-			ry = minf(ry, 790.0 - ph)   # keep inside viewport
-			_action_popup.offset_top    = ry
-			_action_popup.offset_bottom = ry + ph
-			_action_popup.visible = true
-		)
-		row_lbl.mouse_exited.connect(func(): _action_popup.visible = false)
-		vbox.add_child(row_lbl)
+	# ── Defense group (visible only on enemy's turn) ───────────────────────────
+	_legend_def_grp = VBoxContainer.new()
+	_legend_def_grp.add_theme_constant_override("separation", 2)
+	_legend_def_grp.visible = false
+	vbox.add_child(_legend_def_grp)
 
-		if i == 1:
-			vbox.add_child(HSeparator.new())  # split between attack rows and defense rows
+	# Separator is inside the def group — hidden along with it
+	_legend_def_grp.add_child(HSeparator.new())
+
+	_legend_row(_legend_def_grp, "Roll",
+		"Roll\n0 damage.   Costs %d STA." % STA_ROLL)
+	_legend_row(_legend_def_grp, "Block",
+		"Block\nPartial damage.   Costs %d STA." % STA_BLOCK)
+	_legend_row(_legend_def_grp, "Parry",
+		"Parry\n0 damage.   Costs %d STA.\nCounter window: react just before the hit." % STA_PARRY)
+	_legend_row(_legend_def_grp, "Take Hit",
+		"Take Hit\nFull damage, no stamina cost.")
+	_legend_row(_legend_def_grp, "Flee",
+		"Flee\nRetreat from combat — no runes gained.\nNot available against bosses.")
+
+func _legend_row(parent: VBoxContainer, display: String, tip: String) -> void:
+	var lbl := Label.new()
+	lbl.text = display
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl.mouse_entered.connect(func():
+		if tip == "_r1_":
+			_popup_body_lbl.text = _r1_popup_text
+		elif tip == "_r2_":
+			_popup_body_lbl.text = _r2_popup_text
+		else:
+			_popup_body_lbl.text = tip
+		var ry := lbl.get_global_rect().position.y
+		var ph := 180.0
+		ry = minf(ry, 790.0 - ph)
+		_action_popup.offset_top    = ry
+		_action_popup.offset_bottom = ry + ph
+		_action_popup.visible = true
+	)
+	lbl.mouse_exited.connect(func(): _action_popup.visible = false)
+	parent.add_child(lbl)
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
