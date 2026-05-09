@@ -180,19 +180,15 @@ func _show_player_options() -> void:
 
 	var items: Array = []
 	for move in WeaponDB.get_moveset(weapon):
-		var dmg    := WeaponDB.calc_damage(move, weapon, GameManager.stats)
 		var sta    : int = move.get("stamina_cost", 0)
 		var fp     : int = move.get("fp_cost", 0)
 		var can_use := _player_stamina >= sta and _player_fp >= fp
-		var cost_str := ""
-		if sta > 0: cost_str += " %dSTA" % sta
-		if fp  > 0: cost_str += " %dFP"  % fp
 		items.append({
-			"label":    "%s\n%ddmg |%s" % [move.name, dmg, cost_str],
+			"label":    move.name,
 			"callback": _on_attack_btn.bind(move, weapon),
 			"disabled": not can_use,
 		})
-	items.append({"label": "End Turn\n(save stamina)", "callback": _on_end_turn, "disabled": false})
+	items.append({"label": "End Turn", "callback": _on_end_turn, "disabled": false})
 	_populate_ring(items)
 
 func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
@@ -305,17 +301,13 @@ func _show_defense_options() -> void:
 	var guard_break := sta == 0
 
 	var items: Array = [
-		{"label": "Roll\n0 dmg | %dSTA" % STA_ROLL,
-		 "callback": _on_defense.bind("roll"),  "disabled": guard_break or sta < STA_ROLL},
-		{"label": "Block\n%ddmg | %dSTA" % [_current_enemy_move.get("block_damage", 0), STA_BLOCK],
-		 "callback": _on_defense.bind("block"), "disabled": guard_break or sta < STA_BLOCK},
-		{"label": "Parry\n0 dmg | %dSTA" % STA_PARRY,
-		 "callback": _on_defense.bind("parry"), "disabled": guard_break or sta < STA_PARRY},
-		{"label": "Take\n%ddmg | 0STA" % _current_enemy_move.get("damage", 0),
-		 "callback": _on_defense.bind("take"),  "disabled": false},
+		{"label": "Roll",  "callback": _on_defense.bind("roll"),  "disabled": guard_break or sta < STA_ROLL},
+		{"label": "Block", "callback": _on_defense.bind("block"), "disabled": guard_break or sta < STA_BLOCK},
+		{"label": "Parry", "callback": _on_defense.bind("parry"), "disabled": guard_break or sta < STA_PARRY},
+		{"label": "Take Hit", "callback": _on_defense.bind("take"), "disabled": false},
 	]
 	if not _enemy.get("is_boss", false):
-		items.append({"label": "Flee\n(no runes)", "callback": _on_defense.bind("flee"), "disabled": false})
+		items.append({"label": "Flee", "callback": _on_defense.bind("flee"), "disabled": false})
 
 	if guard_break:
 		_log_add("GUARD BREAK — no stamina! Only Take or Flee.", Color(0.9, 0.5, 0.1))
@@ -880,7 +872,11 @@ func _progress_bar(color: Color) -> ProgressBar:
 func _apply_bar_color(bar: ProgressBar, color: Color) -> void:
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = color
+	fill.set_corner_radius_all(5)
 	bar.add_theme_stylebox_override("fill", fill)
 	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.10, 0.10, 0.12)
+	bg.bg_color = Color(0.10, 0.09, 0.13)
+	bg.set_corner_radius_all(5)
+	bg.set_border_width_all(1)
+	bg.border_color = color.darkened(0.35)
 	bar.add_theme_stylebox_override("background", bg)
