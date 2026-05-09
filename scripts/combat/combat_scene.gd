@@ -70,9 +70,9 @@ var _faith_check_row:  Control   # shown only for incantation moves
 var _faith_check:      CheckBox
 var _status_bars_box:  HBoxContainer
 
-var _action_popup:     PanelContainer
-var _popup_r1_lbl:     Label
-var _popup_r2_lbl:     Label
+var _action_popup:      PanelContainer
+var _popup_body_lbl:    Label
+var _attack_popup_text: String = ""
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -113,19 +113,20 @@ func _init_combat() -> void:
 	_weapon_name_lbl.text = wdata.get("name", wid)
 	_weapon_display.set_weapon(wid)
 
-	# Update action legend popup with this weapon's moves
+	# Build attack popup text shown when hovering the Attack legend row
 	var moveset := WeaponDB.get_moveset(wdata)
+	_attack_popup_text = ""
 	if moveset.size() >= 1:
 		var m0: Dictionary = moveset[0]
-		var c0 := ("%d STA" % m0.get("stamina_cost", 0)) if m0.get("stamina_cost", 0) > 0 \
-				  else ("%d FP" % m0.get("fp_cost", 0))
-		_popup_r1_lbl.text = "LMB  2 s  →  %s\n  %s\n  Cost: %s" % \
+		var c0 := "%d STA" % m0.get("stamina_cost", 0) if m0.get("stamina_cost", 0) > 0 \
+				  else "%d FP" % m0.get("fp_cost", 0)
+		_attack_popup_text = "LMB  hold 2 s  →  %s\n%s\nCost: %s" % \
 				[m0.get("name", ""), m0.get("real_task", ""), c0]
 	if moveset.size() >= 2:
 		var m1: Dictionary = moveset[1]
-		var c1 := ("%d STA" % m1.get("stamina_cost", 0)) if m1.get("stamina_cost", 0) > 0 \
-				  else ("%d FP" % m1.get("fp_cost", 0))
-		_popup_r2_lbl.text = "RMB  2 s  →  %s\n  %s\n  Cost: %s" % \
+		var c1 := "%d STA" % m1.get("stamina_cost", 0) if m1.get("stamina_cost", 0) > 0 \
+				  else "%d FP" % m1.get("fp_cost", 0)
+		_attack_popup_text += "\n\nRMB  hold 2 s  →  %s\n%s\nCost: %s" % \
 				[m1.get("name", ""), m1.get("real_task", ""), c1]
 
 	# Recover runes if this is the death location
@@ -694,98 +695,78 @@ func _build_ring() -> void:
 # ── Action legend — left side between stat bars and equipment ─────────────────
 
 func _build_action_legend() -> void:
-	# ── Compact panel (always visible) ───────────────────────────────────────
+	# ── Shared popup — content + position change per hovered row ─────────────
+	# Added before legend so legend draws on top; popup itself is above ring
+	# because it's the last child added to the root (after _build_task_popup).
+	_action_popup = PanelContainer.new()
+	_action_popup.offset_left   = 282
+	_action_popup.offset_right  = 632   # 350 px wide
+	_action_popup.offset_top    = 96    # overwritten on each hover
+	_action_popup.offset_bottom = 276   # 180 px tall — fits attack text
+	_action_popup.visible       = false
+	_action_popup.mouse_filter  = Control.MOUSE_FILTER_IGNORE
+	add_child(_action_popup)
+
+	var pm := _margin_container(_action_popup, 10)
+	_popup_body_lbl = Label.new()
+	_popup_body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_popup_body_lbl.add_theme_font_size_override("font_size", 11)
+	pm.add_child(_popup_body_lbl)
+
+	# ── Compact legend panel ──────────────────────────────────────────────────
 	var outer := PanelContainer.new()
 	outer.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	outer.offset_left   = 12
 	outer.offset_right  = 272
 	outer.offset_top    = 96
-	outer.offset_bottom = 200
+	outer.offset_bottom = 270
 	add_child(outer)
 
 	var m := _margin_container(outer, 8)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 5)
+	vbox.add_theme_constant_override("separation", 2)
 	m.add_child(vbox)
 
 	var header := Label.new()
-	header.text = "ACTIONS  — hover for details"
+	header.text = "ACTIONS"
 	header.add_theme_font_size_override("font_size", 10)
 	header.add_theme_color_override("font_color", Color(0.48, 0.45, 0.40))
 	vbox.add_child(header)
-
 	vbox.add_child(HSeparator.new())
 
-	for row: Array in [
-		["Attack", "LMB · RMB   (hold 2 s on enemy)"],
-		["Defend", "Roll  ·  Block  ·  Parry"],
-		["       ", "Take Hit  ·  Flee"],
-	]:
-		var lbl := Label.new()
-		lbl.text = "%-8s  %s" % [row[0], row[1]]
-		lbl.add_theme_font_size_override("font_size", 11)
-		vbox.add_child(lbl)
+	# Each entry: [display text, popup text — "" means use _attack_popup_text]
+	var entries: Array = [
+		["Attack   LMB · RMB  (2 s)", ""],
+		["Roll",     "Roll\n0 damage.   Costs %d STA." % STA_ROLL],
+		["Block",    "Block\nPartial damage.   Costs %d STA." % STA_BLOCK],
+		["Parry",    "Parry\n0 damage.   Costs %d STA.\nCounter window: react just before the hit." % STA_PARRY],
+		["Take Hit", "Take Hit\nFull damage, no stamina cost."],
+		["Flee",     "Flee\nRetreat from combat — no runes gained.\nNot available against bosses."],
+	]
 
-	outer.mouse_entered.connect(func(): _action_popup.visible = true)
-	outer.mouse_exited.connect(func(): _action_popup.visible  = false)
+	for i in range(entries.size()):
+		var display: String  = entries[i][0]
+		var tip: String      = entries[i][1]  # "" = attack, use _attack_popup_text
 
-	# ── Hover popup (draws on top because added last to root) ─────────────────
-	_action_popup = PanelContainer.new()
-	_action_popup.anchor_left   = 0.0
-	_action_popup.anchor_right  = 0.0
-	_action_popup.anchor_top    = 0.0
-	_action_popup.anchor_bottom = 0.0
-	_action_popup.offset_left   = 282
-	_action_popup.offset_right  = 634
-	_action_popup.offset_top    = 96
-	_action_popup.offset_bottom = 390
-	_action_popup.visible       = false
-	_action_popup.mouse_filter  = Control.MOUSE_FILTER_IGNORE
-	add_child(_action_popup)
+		var row_lbl := Label.new()
+		row_lbl.text = display
+		row_lbl.add_theme_font_size_override("font_size", 11)
+		row_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		row_lbl.mouse_entered.connect(func():
+			_popup_body_lbl.text = _attack_popup_text if tip.is_empty() else tip
+			# Snap popup vertically to this row
+			var ry: float = row_lbl.get_global_rect().position.y
+			var ph: float = 180.0
+			ry = minf(ry, 790.0 - ph)   # keep inside viewport
+			_action_popup.offset_top    = ry
+			_action_popup.offset_bottom = ry + ph
+			_action_popup.visible = true
+		)
+		row_lbl.mouse_exited.connect(func(): _action_popup.visible = false)
+		vbox.add_child(row_lbl)
 
-	var pm    := _margin_container(_action_popup, 10)
-	var pvbox := VBoxContainer.new()
-	pvbox.add_theme_constant_override("separation", 7)
-	pm.add_child(pvbox)
-
-	# Attack section
-	var atk_hdr := Label.new()
-	atk_hdr.text = "ATTACK — hover the enemy then hold"
-	atk_hdr.add_theme_font_size_override("font_size", 11)
-	atk_hdr.add_theme_color_override("font_color", Color(0.80, 0.65, 0.25))
-	pvbox.add_child(atk_hdr)
-
-	_popup_r1_lbl = Label.new()
-	_popup_r1_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_popup_r1_lbl.add_theme_font_size_override("font_size", 11)
-	pvbox.add_child(_popup_r1_lbl)
-
-	_popup_r2_lbl = Label.new()
-	_popup_r2_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_popup_r2_lbl.add_theme_font_size_override("font_size", 11)
-	pvbox.add_child(_popup_r2_lbl)
-
-	pvbox.add_child(HSeparator.new())
-
-	# Defense section
-	var def_hdr := Label.new()
-	def_hdr.text = "DEFEND — ring buttons on enemy's turn"
-	def_hdr.add_theme_font_size_override("font_size", 11)
-	def_hdr.add_theme_color_override("font_color", Color(0.45, 0.58, 0.72))
-	pvbox.add_child(def_hdr)
-
-	for row: Array in [
-		["Roll",     "0 damage — costs %d STA" % STA_ROLL],
-		["Block",    "partial damage — costs %d STA" % STA_BLOCK],
-		["Parry",    "0 damage — costs %d STA" % STA_PARRY],
-		["Take Hit", "full damage — free"],
-		["Flee",     "retreat from combat (not vs. bosses)"],
-	]:
-		var lbl := Label.new()
-		lbl.text = "  %-10s — %s" % [row[0], row[1]]
-		lbl.add_theme_font_size_override("font_size", 11)
-		lbl.add_theme_color_override("font_color", Color(0.68, 0.65, 0.60))
-		pvbox.add_child(lbl)
+		if i == 0:
+			vbox.add_child(HSeparator.new())  # visual split between attack and defense
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
