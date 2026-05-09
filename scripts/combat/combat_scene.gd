@@ -620,30 +620,33 @@ func _build_ring() -> void:
 	_phase_lbl.visible = false
 	_ring_container.add_child(_phase_lbl)
 
-	# ── Enemy visual (small placeholder, centre of ring) ──────────────────────
-	_enemy_visual = EnemyDisplay.new()
-	_enemy_visual.custom_minimum_size = Vector2(100, 120)
-	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 168)
-	_ring_container.add_child(_enemy_visual)
+	# Stack order: name → hp bar → visual → status → move desc
+	# Total stack height ≈ 166 px; centred on RING_CENTER.y
 
 	# ── Enemy name ────────────────────────────────────────────────────────────
 	_enemy_name_lbl = Label.new()
 	_enemy_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_enemy_name_lbl.add_theme_font_size_override("font_size", 16)
 	_enemy_name_lbl.custom_minimum_size = Vector2(220, 0)
-	_enemy_name_lbl.position = Vector2(RING_CENTER.x - 110, RING_CENTER.y - 45)
+	_enemy_name_lbl.position = Vector2(RING_CENTER.x - 110, RING_CENTER.y - 83)
 	_ring_container.add_child(_enemy_name_lbl)
 
 	# ── Enemy HP bar ──────────────────────────────────────────────────────────
 	_enemy_hp_bar = _progress_bar(ER_HP)
 	_enemy_hp_bar.custom_minimum_size = Vector2(200, 16)
-	_enemy_hp_bar.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 24)
+	_enemy_hp_bar.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 57)
 	_ring_container.add_child(_enemy_hp_bar)
+
+	# ── Enemy visual ──────────────────────────────────────────────────────────
+	_enemy_visual = EnemyDisplay.new()
+	_enemy_visual.custom_minimum_size = Vector2(100, 120)
+	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 37)
+	_ring_container.add_child(_enemy_visual)
 
 	# ── Status buildup bars ───────────────────────────────────────────────────
 	_status_bars_box = HBoxContainer.new()
 	_status_bars_box.add_theme_constant_override("separation", 10)
-	_status_bars_box.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y - 4)
+	_status_bars_box.position = Vector2(RING_CENTER.x - 100, RING_CENTER.y + 87)
 	_ring_container.add_child(_status_bars_box)
 
 	# ── Enemy current-move description ────────────────────────────────────────
@@ -653,7 +656,7 @@ func _build_ring() -> void:
 	_enemy_move_lbl.add_theme_font_size_override("font_size", 12)
 	_enemy_move_lbl.add_theme_color_override("font_color", Color(0.90, 0.45, 0.30))
 	_enemy_move_lbl.custom_minimum_size = Vector2(280, 0)
-	_enemy_move_lbl.position = Vector2(RING_CENTER.x - 140, RING_CENTER.y + 18)
+	_enemy_move_lbl.position = Vector2(RING_CENTER.x - 140, RING_CENTER.y + 103)
 	_ring_container.add_child(_enemy_move_lbl)
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
