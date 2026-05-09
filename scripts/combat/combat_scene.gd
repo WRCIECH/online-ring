@@ -567,7 +567,7 @@ func _build_ui() -> void:
 
 	_build_player_stats()
 	_build_ring()         # enemy info lives inside the ring
-	_build_weapon_panel() # bottom-left
+	_build_equipment_slots() # bottom-left
 	_build_log()          # right side
 	_build_task_popup()
 
@@ -663,30 +663,75 @@ func _build_ring() -> void:
 
 # ── Weapon panel — bottom left ────────────────────────────────────────────────
 
-func _build_weapon_panel() -> void:
-	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	panel.offset_left   = 10
-	panel.offset_top    = -268
-	panel.offset_right  = 215
-	panel.offset_bottom = -10
-	add_child(panel)
+func _build_equipment_slots() -> void:
+	# Four slots in an Elden Ring-style cross:
+	#        [Spell ▲]
+	#  [Left ◄]  [► Weapon]
+	#        [▼ Estus]
+	const SZ  := 62.0   # slot size (px)
+	const GAP :=  8.0   # gap between slots
+	const PAD :=  8.0   # panel inner padding
 
-	var m := _margin_container(panel, 8)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
-	m.add_child(vbox)
+	# Panel: (2*PAD + 2*SZ + GAP) wide, (2*PAD + 2*SZ + GAP + 18) tall
+	var outer := PanelContainer.new()
+	outer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	outer.offset_left   = 10
+	outer.offset_right  = 10 + int(2*PAD + 2*SZ + GAP)     # = 158
+	outer.offset_bottom = -10
+	outer.offset_top    = -10 - int(2*PAD + 2*SZ + GAP + 18) # = -176
+	add_child(outer)
 
+	var m := _margin_container(outer, int(PAD))
+
+	# Free-positioned root; children use explicit position+size
+	var root := Control.new()
+	root.custom_minimum_size = Vector2(2*SZ + GAP, 2*SZ + GAP + 18)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(root)
+
+	var half: float = (SZ + GAP) / 2.0   # = 35
+
+	# Spell slot (top) — empty
+	_equipment_slot(root, Vector2(half, 0), SZ, false)
+
+	# Left-hand slot — empty
+	_equipment_slot(root, Vector2(0, half), SZ, false)
+
+	# Weapon slot (right) — active, contains WeaponDisplay
+	var wslot := _equipment_slot(root, Vector2(SZ + GAP, half), SZ, true)
+	_weapon_display = WeaponDisplay.new()
+	_weapon_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wslot.add_child(_weapon_display)
+
+	# Consumable / Estus slot (bottom) — empty
+	_equipment_slot(root, Vector2(half, SZ + GAP), SZ, false)
+
+	# Tiny weapon name below the cross
 	_weapon_name_lbl = Label.new()
 	_weapon_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_weapon_name_lbl.add_theme_font_size_override("font_size", 12)
-	_weapon_name_lbl.add_theme_color_override("font_color", Color(0.70, 0.65, 0.55))
-	vbox.add_child(_weapon_name_lbl)
+	_weapon_name_lbl.add_theme_font_size_override("font_size", 10)
+	_weapon_name_lbl.add_theme_color_override("font_color", Color(0.55, 0.50, 0.40))
+	_weapon_name_lbl.position = Vector2(0, 2*SZ + GAP + 3)
+	_weapon_name_lbl.size     = Vector2(2*SZ + GAP, 14)
+	root.add_child(_weapon_name_lbl)
 
-	_weapon_display = WeaponDisplay.new()
-	_weapon_display.size_flags_vertical   = Control.SIZE_EXPAND_FILL
-	_weapon_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_weapon_display)
+func _equipment_slot(parent: Control, pos: Vector2, sz: float, active: bool) -> Panel:
+	var slot := Panel.new()
+	slot.position = pos
+	slot.size     = Vector2(sz, sz)
+
+	var sbox := StyleBoxFlat.new()
+	sbox.bg_color = Color(0.06, 0.05, 0.09)
+	sbox.set_corner_radius_all(3)
+	if active:
+		sbox.set_border_width_all(2)
+		sbox.border_color = Color(0.68, 0.56, 0.22)   # gold
+	else:
+		sbox.set_border_width_all(1)
+		sbox.border_color = Color(0.22, 0.20, 0.26)   # dim
+	slot.add_theme_stylebox_override("panel", sbox)
+	parent.add_child(slot)
+	return slot
 
 # ── Battle log — right strip ──────────────────────────────────────────────────
 
