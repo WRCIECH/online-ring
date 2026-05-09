@@ -4,9 +4,20 @@ extends Control
 # Sprite fallback: drop {enemy_id}.png into res://assets/sprites/enemies/
 # and it will be used automatically (Kenney RPG Asset Pack works well).
 
-var enemy_id: String = ""
+signal r1_triggered
+signal r2_triggered
 
+const HOLD_DURATION := 2.0
+
+var enemy_id: String = ""
 var _sprite: TextureRect
+
+# ── Interaction state ─────────────────────────────────────────────────────────
+var _hovered:   bool  = false
+var _lmb_hold:  bool  = false
+var _rmb_hold:  bool  = false
+var _hold_time: float = 0.0
+var _anim_time: float = 0.0
 
 func _ready() -> void:
 	_sprite = TextureRect.new()
@@ -14,7 +25,20 @@ func _ready() -> void:
 	_sprite.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 	_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_sprite.visible = false
+	_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE  # don't swallow events
 	add_child(_sprite)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE   # disabled until set_interactive(true)
+	mouse_entered.connect(func(): _hovered = true; queue_redraw())
+	mouse_exited.connect(_on_mouse_exit)
+
+func set_interactive(on: bool) -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP if on else Control.MOUSE_FILTER_IGNORE
+	if not on:
+		_hovered   = false
+		_lmb_hold  = false
+		_rmb_hold  = false
+		_hold_time = 0.0
+	queue_redraw()
 
 func set_enemy(id: String) -> void:
 	enemy_id = id
@@ -26,19 +50,133 @@ func set_enemy(id: String) -> void:
 		_sprite.visible = false
 	queue_redraw()
 
-# ── Procedural drawing ────────────────────────────────────────────────────────
+# ── Input ─────────────────────────────────────────────────────────────────────
+
+func _on_mouse_exit() -> void:
+	_hovered   = false
+	_lmb_hold  = false
+	_rmb_hold  = false
+	_hold_time = 0.0
+	queue_redraw()
+
+func _gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mbe: InputEventMouseButton = event
+	if mbe.button_index == MOUSE_BUTTON_LEFT:
+		if mbe.pressed and not _rmb_hold:
+			_lmb_hold  = true
+			_hold_time = 0.0
+		elif not mbe.pressed and _lmb_hold:
+			_lmb_hold  = false
+			_hold_time = 0.0
+			queue_redraw()
+	elif mbe.button_index == MOUSE_BUTTON_RIGHT:
+		if mbe.pressed and not _lmb_hold:
+			_rmb_hold  = true
+			_hold_time = 0.0
+		elif not mbe.pressed and _rmb_hold:
+			_rmb_hold  = false
+			_hold_time = 0.0
+			queue_redraw()
+
+func _process(delta: float) -> void:
+	if _hovered:
+		_anim_time += delta
+		queue_redraw()
+	if _lmb_hold or _rmb_hold:
+		_hold_time += delta
+		queue_redraw()
+		if _hold_time >= HOLD_DURATION:
+			var was_lmb := _lmb_hold
+			set_interactive(false)
+			if was_lmb:
+				r1_triggered.emit()
+			else:
+				r2_triggered.emit()
+
+# ── Drawing ───────────────────────────────────────────────────────────────────
 
 func _draw() -> void:
-	if _sprite and _sprite.visible:
+	# Enemy art (procedural when no sprite)
+	if not (_sprite and _sprite.visible):
+		var cx := size.x * 0.5
+		var H  := size.y
+		match enemy_id:
+			"procrastination_mob":  _proc_mob(cx, H)
+			"hater":                _hater(cx, H)
+			"blank_page_omen":      _blank_page(cx, H)
+			"perfectionism_knight": _knight(cx, H)
+			_:                      _generic(cx, H)
+
+	# Interactive overlays drawn on top of art
+	if mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		return
-	var cx := size.x * 0.5
-	var H  := size.y
-	match enemy_id:
-		"procrastination_mob":  _proc_mob(cx, H)
-		"hater":                _hater(cx, H)
-		"blank_page_omen":      _blank_page(cx, H)
-		"perfectionism_knight": _knight(cx, H)
-		_:                      _generic(cx, H)
+	if _hovered:
+		_draw_hover()
+	if _lmb_hold or _rmb_hold:
+		_draw_hold_ring()
+
+# ── Hover overlay ─────────────────────────────────────────────────────────────
+
+func _draw_hover() -> void:
+	var w     := size.x
+	var H     := size.y
+	var pulse := (sin(_anim_time * 5.0) + 1.0) * 0.5
+
+	# Pulsing golden border
+	draw_rect(Rect2(1, 1, w - 2, H - 2),
+		Color(1.0, 0.88, 0.28, 0.18 + pulse * 0.18), false, 2.5)
+	draw_rect(Rect2(4, 4, w - 8, H - 8),
+		Color(1.0, 0.88, 0.28, 0.05 + pulse * 0.06), false, 1.0)
+
+	# Animated lightning sparks positioned around the border
+	var spark_col := Color(1.0, 0.96, 0.45, 0.55 + pulse * 0.45)
+	var cx := w * 0.5
+	var sparks: Array = [
+		[Vector2(cx - 38, H * 0.16), 0.0],
+		[Vector2(cx + 40, H * 0.22), 1.1],
+		[Vector2(cx - 42, H * 0.50), 2.0],
+		[Vector2(cx + 38, H * 0.55), 0.7],
+		[Vector2(cx - 30, H * 0.82), 1.6],
+		[Vector2(cx + 32, H * 0.78), 0.4],
+	]
+	for entry in sparks:
+		var sp:  Vector2 = entry[0]
+		var off: float   = entry[1]
+		var t:   float   = fmod(_anim_time * 3.5 + off, TAU)
+		if t > PI:
+			continue    # blink off for half the cycle
+		var flicker := sin(t) * 0.7 + 0.3
+		var sc := Color(spark_col.r, spark_col.g, spark_col.b, spark_col.a * flicker)
+		var sz  := 5.0 + 3.5 * sin(t * 2.0)
+		draw_line(sp, sp + Vector2( sz, -sz * 0.9),   sc, 1.5)
+		draw_line(sp, sp + Vector2(-sz * 0.5, -sz),   sc, 1.5)
+		draw_line(sp, sp + Vector2( sz * 0.3, sz * 0.7), sc, 1.0)
+
+# ── Hold-progress ring ────────────────────────────────────────────────────────
+
+func _draw_hold_ring() -> void:
+	var cx       := size.x * 0.5
+	var cy       := size.y * 0.5
+	var radius   := minf(cx, cy) - 6.0
+	var progress := minf(_hold_time / HOLD_DURATION, 1.0)
+	var col      := Color(0.88, 0.12, 0.12) if _lmb_hold else Color(0.28, 0.38, 0.92)
+	var hint     := "R1" if _lmb_hold else "R2"
+
+	# Dark track (full circle)
+	draw_arc(Vector2(cx, cy), radius, 0.0, TAU, 64,
+		Color(0.10, 0.10, 0.14, 0.70), 6.0)
+
+	# Coloured fill — clockwise from 12 o'clock
+	if progress > 0.005:
+		draw_arc(Vector2(cx, cy), radius,
+			-PI * 0.5, -PI * 0.5 + progress * TAU, 64, col, 6.0)
+
+	# Move label centred inside the ring
+	draw_string(ThemeDB.fallback_font,
+		Vector2(cx - 12, cy + 6),
+		hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
 
 # ── Procrastination Mob ───────────────────────────────────────────────────────
 # Amorphous blob — big distracted eyes, slumped posture, scattered energy

@@ -128,6 +128,7 @@ func _init_combat() -> void:
 
 func _enter_phase(new_phase: Phase) -> void:
 	_phase = new_phase
+	_enemy_visual.set_interactive(false)
 	match new_phase:
 		Phase.PLAYER_ATTACK:
 			if _new_round:
@@ -172,24 +173,9 @@ func _enter_phase(new_phase: Phase) -> void:
 # ── Player attack phase ───────────────────────────────────────────────────────
 
 func _show_player_options() -> void:
-	_phase_lbl.text = "YOUR TURN"
-	_enemy_move_lbl.text = ""
-
-	var weapon_id: String = GameManager.equipped_weapon
-	var weapon: Dictionary = WeaponDB.WEAPONS.get(weapon_id, WeaponDB.WEAPONS["writers_quill"])
-
-	var items: Array = []
-	for move in WeaponDB.get_moveset(weapon):
-		var sta    : int = move.get("stamina_cost", 0)
-		var fp     : int = move.get("fp_cost", 0)
-		var can_use := _player_stamina >= sta and _player_fp >= fp
-		items.append({
-			"label":    move.name,
-			"callback": _on_attack_btn.bind(move, weapon),
-			"disabled": not can_use,
-		})
-	items.append({"label": "End Turn", "callback": _on_end_turn, "disabled": false})
-	_populate_ring(items)
+	_clear_options()
+	_enemy_move_lbl.text = "Hold LMB — R1     Hold RMB — R2"
+	_enemy_visual.set_interactive(true)
 
 func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
 	_pending_move   = move
@@ -206,6 +192,32 @@ func _on_attack_btn(move: Dictionary, weapon: Dictionary) -> void:
 func _on_end_turn() -> void:
 	_log_add("You hold back, saving stamina.", Color(0.6, 0.6, 0.6))
 	_enter_phase(Phase.ENEMY_ATTACK)
+
+func _on_r1_triggered() -> void:
+	var weapon: Dictionary = WeaponDB.WEAPONS.get(GameManager.equipped_weapon, WeaponDB.WEAPONS["writers_quill"])
+	var moveset := WeaponDB.get_moveset(weapon)
+	if moveset.is_empty():
+		_enemy_visual.set_interactive(true)
+		return
+	_try_use_move(moveset[0], weapon)
+
+func _on_r2_triggered() -> void:
+	var weapon: Dictionary = WeaponDB.WEAPONS.get(GameManager.equipped_weapon, WeaponDB.WEAPONS["writers_quill"])
+	var moveset := WeaponDB.get_moveset(weapon)
+	if moveset.size() < 2:
+		_log_add("No R2 move for this weapon.", Color(0.6, 0.6, 0.6))
+		_enemy_visual.set_interactive(true)
+		return
+	_try_use_move(moveset[1], weapon)
+
+func _try_use_move(move: Dictionary, weapon: Dictionary) -> void:
+	var sta: int = move.get("stamina_cost", 0)
+	var fp:  int = move.get("fp_cost", 0)
+	if _player_stamina < sta or _player_fp < fp:
+		_log_add("Not enough stamina/FP for %s." % move.name, Color(0.9, 0.5, 0.1))
+		_enemy_visual.set_interactive(true)
+		return
+	_on_attack_btn(move, weapon)
 
 func _on_task_check_toggled(checked: bool) -> void:
 	_task_confirm_btn.disabled = not checked
@@ -225,7 +237,8 @@ func _on_task_confirmed() -> void:
 
 func _on_task_back() -> void:
 	_task_layer.hide()
-	_phase = Phase.PLAYER_ATTACK   # resume timer
+	_phase = Phase.PLAYER_ATTACK
+	_enemy_visual.set_interactive(true)
 
 func _execute_attack() -> void:
 	var move   := _pending_move
@@ -633,6 +646,8 @@ func _build_ring() -> void:
 	_enemy_visual = EnemyDisplay.new()
 	_enemy_visual.custom_minimum_size = Vector2(100, 120)
 	_enemy_visual.position = Vector2(RING_CENTER.x - 50, RING_CENTER.y - 37)
+	_enemy_visual.r1_triggered.connect(_on_r1_triggered)
+	_enemy_visual.r2_triggered.connect(_on_r2_triggered)
 	_ring_container.add_child(_enemy_visual)
 
 	# ── Status buildup bars ───────────────────────────────────────────────────
