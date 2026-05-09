@@ -58,6 +58,9 @@ var _player_hp_bar:   ProgressBar
 var _player_sta_bar:  ProgressBar
 var _player_fp_bar:   ProgressBar
 
+var _weapon_display:   WeaponDisplay
+var _weapon_name_lbl:  Label
+
 var _task_layer:       CanvasLayer
 var _task_move_lbl:    Label
 var _task_desc_lbl:    Label
@@ -105,6 +108,12 @@ func _init_combat() -> void:
 		_enemy_visual.color = Color(0.10, 0.09, 0.12)   # dark grey-blue
 	_update_enemy_bars()
 	_update_player_bars()
+
+	# Weapon display
+	var wid: String = GameManager.equipped_weapon
+	var wdata: Dictionary = WeaponDB.WEAPONS.get(wid, WeaponDB.WEAPONS["writers_quill"])
+	_weapon_name_lbl.text = wdata.get("name", wid)
+	_weapon_display.set_weapon(wid)
 
 	# Recover runes if this is the death location
 	var runes_here: int = GameManager.runes_at_death
@@ -563,8 +572,9 @@ func _build_ui() -> void:
 	add_child(bg)
 
 	_build_player_stats()
-	_build_ring()   # enemy info lives inside the ring
-	_build_log()
+	_build_ring()         # enemy info lives inside the ring
+	_build_weapon_panel() # bottom-left
+	_build_log()          # right side
 	_build_task_popup()
 
 # ── Player stats — upper left (colour-coded strips only, no text) ─────────────
@@ -655,18 +665,52 @@ func _build_ring() -> void:
 
 # ── Battle log — bottom left ──────────────────────────────────────────────────
 
-func _build_log() -> void:
+# ── Weapon panel — bottom left ────────────────────────────────────────────────
+
+func _build_weapon_panel() -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	panel.offset_top    = -195
-	panel.offset_right  = 385
+	panel.offset_left   = 10
+	panel.offset_top    = -268
+	panel.offset_right  = 215
+	panel.offset_bottom = -10
+	add_child(panel)
+
+	var m := _margin_container(panel, 8)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	m.add_child(vbox)
+
+	_weapon_name_lbl = Label.new()
+	_weapon_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_weapon_name_lbl.add_theme_font_size_override("font_size", 12)
+	_weapon_name_lbl.add_theme_color_override("font_color", Color(0.70, 0.65, 0.55))
+	vbox.add_child(_weapon_name_lbl)
+
+	_weapon_display = WeaponDisplay.new()
+	_weapon_display.size_flags_vertical   = Control.SIZE_EXPAND_FILL
+	_weapon_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_weapon_display)
+
+# ── Battle log — right strip ──────────────────────────────────────────────────
+
+func _build_log() -> void:
+	var panel := PanelContainer.new()
+	# Anchor to right edge, full height
+	panel.anchor_left   = 1.0
+	panel.anchor_right  = 1.0
+	panel.anchor_top    = 0.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left   = -345
+	panel.offset_right  = -10
+	panel.offset_top    = 10
 	panel.offset_bottom = -10
 	add_child(panel)
 
 	var m := _margin_container(panel, 8)
 	_log = RichTextLabel.new()
-	_log.bbcode_enabled    = true
-	_log.scroll_following  = true
+	_log.bbcode_enabled   = true
+	_log.scroll_following = true
 	_log.add_theme_font_size_override("font_size", 11)
 	m.add_child(_log)
 
