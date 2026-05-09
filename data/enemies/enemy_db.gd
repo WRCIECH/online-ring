@@ -15,20 +15,7 @@ const ENEMIES := {
 		"is_boss": false,
 		"drops": [],
 		"status_multipliers": { "bleed": 1.5, "frost": 1.2 },
-		"moveset": [
-			{
-				"id": "mindless_scroll",
-				"name": "Mindless Scrolling",
-				"description": "Just 5 more minutes of social media.",
-				"damage": 12, "block_damage": 5, "poise_damage": 8,
-			},
-			{
-				"id": "shiny_object",
-				"name": "Shiny Object",
-				"description": "A new tool that absolutely needs researching right now.",
-				"damage": 18, "block_damage": 8, "poise_damage": 5,
-			},
-		],
+		"moveset": ["mindless_scroll", "shiny_object"],
 	},
 	"hater": {
 		"name": "The Hater",
@@ -43,26 +30,7 @@ const ENEMIES := {
 			{"id": "dagger", "first_kill_chance": 1.0, "repeat_chance": 0.0},
 		],
 		"status_multipliers": { "madness": 1.4, "bleed": 0.8 },
-		"moveset": [
-			{
-				"id": "public_criticism",
-				"name": "Public Criticism",
-				"description": "Attacks your approach publicly, hoping others pile on.",
-				"damage": 28, "block_damage": 12, "poise_damage": 15,
-			},
-			{
-				"id": "mockery",
-				"name": "Mockery",
-				"description": "Ridicules your content to undermine your confidence.",
-				"damage": 18, "block_damage": 7, "poise_damage": 8,
-			},
-			{
-				"id": "credibility_slash",
-				"name": "Credibility Slash",
-				"description": "Who are you to talk about this?",
-				"damage": 35, "block_damage": 18, "poise_damage": 20,
-			},
-		],
+		"moveset": ["public_criticism", "mockery", "credibility_slash"],
 	},
 	"blank_page_omen": {
 		"name": "Blank Page Omen",
@@ -77,26 +45,7 @@ const ENEMIES := {
 			{"id": "greatsword", "first_kill_chance": 1.0, "repeat_chance": 0.0},
 		],
 		"status_multipliers": { "scarlet_rot": 1.3, "frost": 1.2 },
-		"moveset": [
-			{
-				"id": "infinite_loop",
-				"name": "Infinite Loop",
-				"description": "Check notes, reread outline, check notes again. Nothing gets written.",
-				"damage": 22, "block_damage": 10, "poise_damage": 12,
-			},
-			{
-				"id": "standard_terror",
-				"name": "Standard Terror",
-				"description": "It's not good enough. You delete the paragraph. Again.",
-				"damage": 30, "block_damage": 14, "poise_damage": 18,
-			},
-			{
-				"id": "scope_creep",
-				"name": "Scope Creep",
-				"description": "You need to research more before you can even start.",
-				"damage": 15, "block_damage": 6, "poise_damage": 6,
-			},
-		],
+		"moveset": ["infinite_loop", "standard_terror", "scope_creep"],
 	},
 	"perfectionism_knight": {
 		"name": "Perfectionism Knight",
@@ -110,25 +59,9 @@ const ENEMIES := {
 		"unlocks_area": "second_area",
 		"drops": [],  # area unlock is the reward; Remembrance weapon added in future phase
 		"status_multipliers": { "madness": 0.5, "bleed": 0.7, "frost": 0.8, "scarlet_rot": 0.9 },
-		"moveset": [
-			{
-				"id": "revision_spiral",
-				"name": "Revision Spiral",
-				"description": "Forces you back to revise the opening. Again.",
-				"damage": 35, "block_damage": 16, "poise_damage": 20,
-			},
-			{
-				"id": "not_good_enough",
-				"name": "Not Good Enough",
-				"description": "Compares your work to the best in the field.",
-				"damage": 45, "block_damage": 22, "poise_damage": 30,
-			},
-			{
-				"id": "one_more_source",
-				"name": "One More Source",
-				"description": "You just need to read one more thing before it's done.",
-				"damage": 25, "block_damage": 10, "poise_damage": 15,
-			},
-		],
+		"moveset": ["revision_spiral", "not_good_enough", "one_more_source"],
 	},
 }
+
+static func get_moveset(enemy: Dictionary) -> Array:
+	return EnemyMovesetDB.get_moveset(enemy.get("moveset", []))

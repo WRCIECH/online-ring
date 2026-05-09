@@ -294,7 +294,7 @@ func _execute_attack() -> void:
 # ── Enemy attack phase ────────────────────────────────────────────────────────
 
 func _choose_enemy_move() -> void:
-	var moveset: Array = _enemy.moveset
+	var moveset: Array = EnemyDB.get_moveset(_enemy)
 	_current_enemy_move = moveset[randi() % moveset.size()]
 	_enemy_move_lbl.text = _current_enemy_move.name + "\n" + _current_enemy_move.description
 	_log_add("The %s uses [b]%s[/b]!" % [_enemy.name, _current_enemy_move.name], Color(0.9, 0.35, 0.25))

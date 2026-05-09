@@ -480,7 +480,7 @@ func _on_node_clicked(id: String) -> void:
 	if not enemy_id.is_empty() and EnemyDB.ENEMIES.has(enemy_id):
 		var enemy: Dictionary = EnemyDB.ENEMIES[enemy_id]
 		var lines := PackedStringArray(["", "Attacks:"])
-		for move in enemy.get("moveset", []):
+		for move in EnemyDB.get_moveset(enemy):
 			lines.append(" • %s — %s" % [move.get("name", ""), move.get("description", "")])
 		_info_moveset.text = "\n".join(lines)
 		_info_moveset.visible = true
