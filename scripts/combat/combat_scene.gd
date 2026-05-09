@@ -179,7 +179,7 @@ func _show_player_options() -> void:
 	var weapon: Dictionary = WeaponDB.WEAPONS.get(weapon_id, WeaponDB.WEAPONS["writers_quill"])
 
 	var items: Array = []
-	for move in weapon.moveset:
+	for move in WeaponDB.get_moveset(weapon):
 		var dmg    := WeaponDB.calc_damage(move, weapon, GameManager.stats)
 		var sta    : int = move.get("stamina_cost", 0)
 		var fp     : int = move.get("fp_cost", 0)
@@ -281,7 +281,7 @@ func _execute_attack() -> void:
 	# Can the player afford another attack?
 	var weapon_data: Dictionary = WeaponDB.WEAPONS.get(GameManager.equipped_weapon, WeaponDB.WEAPONS["writers_quill"])
 	var can_chain := false
-	for m in weapon_data.moveset:
+	for m in WeaponDB.get_moveset(weapon_data):
 		if _player_stamina >= m.get("stamina_cost", 0) and _player_fp >= m.get("fp_cost", 0):
 			can_chain = true
 			break

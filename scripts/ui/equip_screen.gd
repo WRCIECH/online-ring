@@ -222,7 +222,7 @@ func _on_weapon_selected(weapon_id: String) -> void:
 	for child in _detail_moves.get_children():
 		child.queue_free()
 
-	for move in weapon.get("moveset", []):
+	for move in WeaponDB.get_moveset(weapon):
 		var dmg: int = WeaponDB.calc_damage(move, weapon, GameManager.stats)
 		var sta: int = move.get("stamina_cost", 0)
 		var fp: int  = move.get("fp_cost", 0)
