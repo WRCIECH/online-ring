@@ -33,6 +33,12 @@ func _draw() -> void:
 	if _sprite and _sprite.visible:
 		return   # sprite takes over
 
+	# Compress horizontally so portrait weapons don't look wide in a square slot.
+	# draw_set_transform scale keeps the centre x fixed while squeezing the arms.
+	var sx := 0.72
+	var ox := size.x * 0.5 * (1.0 - sx)
+	draw_set_transform(Vector2(ox, 0.0), 0.0, Vector2(sx, 1.0))
+
 	var cx := size.x * 0.5
 	var H  := size.y
 
@@ -43,6 +49,8 @@ func _draw() -> void:
 		"viral_hook":      _hook(cx, H)
 		"sacred_seal":     _seal(cx, H)
 		_:                 _generic(cx, H)
+
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 # ── Writers Quill ─────────────────────────────────────────────────────────────
 func _quill(cx: float, H: float) -> void:

@@ -664,55 +664,57 @@ func _build_ring() -> void:
 # ── Weapon panel — bottom left ────────────────────────────────────────────────
 
 func _build_equipment_slots() -> void:
-	# Four slots in an Elden Ring-style cross:
-	#        [Spell ▲]
-	#  [Left ◄]  [► Weapon]
-	#        [▼ Estus]
-	const SZ  := 62.0   # slot size (px)
-	const GAP :=  8.0   # gap between slots
+	# Four slots in an Elden Ring-style cross (3×3 grid, centre empty):
+	#        [▲ Spell ]
+	#  [◄ Left ]   [Weapon ►]
+	#        [▼ Estus ]
+	const SZ  := 76.0   # slot side length (px) — ~50% more area than before
+	const GAP := 10.0   # gap between slots
 	const PAD :=  8.0   # panel inner padding
+	var STEP  := SZ + GAP   # = 86
 
-	# Panel: (2*PAD + 2*SZ + GAP) wide, (2*PAD + 2*SZ + GAP + 18) tall
+	# Grid content: 3*SZ + 2*GAP = 248 wide/tall
+	var content_sz := 3.0 * SZ + 2.0 * GAP          # = 248
+	var label_h    := 17.0
+	var panel_w    := int(2.0 * PAD + content_sz)    # = 264
+	var panel_h    := int(2.0 * PAD + content_sz + label_h)  # = 281
+
 	var outer := PanelContainer.new()
 	outer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	outer.offset_left   = 10
-	outer.offset_right  = 10 + int(2*PAD + 2*SZ + GAP)     # = 158
+	outer.offset_right  = 10 + panel_w    # = 274
 	outer.offset_bottom = -10
-	outer.offset_top    = -10 - int(2*PAD + 2*SZ + GAP + 18) # = -176
+	outer.offset_top    = -10 - panel_h   # = -291
 	add_child(outer)
 
 	var m := _margin_container(outer, int(PAD))
 
-	# Free-positioned root; children use explicit position+size
 	var root := Control.new()
-	root.custom_minimum_size = Vector2(2*SZ + GAP, 2*SZ + GAP + 18)
+	root.custom_minimum_size = Vector2(content_sz, content_sz + label_h)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	m.add_child(root)
 
-	var half: float = (SZ + GAP) / 2.0   # = 35
-
-	# Spell slot (top) — empty
-	_equipment_slot(root, Vector2(half, 0), SZ, false)
-
+	# Spell slot (top centre) — empty
+	_equipment_slot(root, Vector2(STEP, 0),              SZ, false)
 	# Left-hand slot — empty
-	_equipment_slot(root, Vector2(0, half), SZ, false)
+	_equipment_slot(root, Vector2(0,    STEP),           SZ, false)
+	# Weapon slot (right centre) — active, contains WeaponDisplay
+	var wslot := _equipment_slot(root, Vector2(2.0 * STEP, STEP), SZ, true)
+	# Consumable / Estus slot (bottom centre) — empty
+	_equipment_slot(root, Vector2(STEP, 2.0 * STEP),    SZ, false)
 
-	# Weapon slot (right) — active, contains WeaponDisplay
-	var wslot := _equipment_slot(root, Vector2(SZ + GAP, half), SZ, true)
+	# Weapon art inside the right slot
 	_weapon_display = WeaponDisplay.new()
 	_weapon_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	wslot.add_child(_weapon_display)
 
-	# Consumable / Estus slot (bottom) — empty
-	_equipment_slot(root, Vector2(half, SZ + GAP), SZ, false)
-
-	# Tiny weapon name below the cross
+	# Weapon name label below the cross
 	_weapon_name_lbl = Label.new()
 	_weapon_name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_weapon_name_lbl.add_theme_font_size_override("font_size", 10)
 	_weapon_name_lbl.add_theme_color_override("font_color", Color(0.55, 0.50, 0.40))
-	_weapon_name_lbl.position = Vector2(0, 2*SZ + GAP + 3)
-	_weapon_name_lbl.size     = Vector2(2*SZ + GAP, 14)
+	_weapon_name_lbl.position = Vector2(0, content_sz + 3.0)
+	_weapon_name_lbl.size     = Vector2(content_sz, 14)
 	root.add_child(_weapon_name_lbl)
 
 func _equipment_slot(parent: Control, pos: Vector2, sz: float, active: bool) -> Panel:
