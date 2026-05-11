@@ -93,8 +93,9 @@ func _process(delta: float) -> void:
 func _init_combat() -> void:
 	var enemy_id: String = GameManager.pending_encounter.get("enemy_id", "procrastination_mob")
 	_enemy         = EnemyDB.ENEMIES.get(enemy_id, EnemyDB.ENEMIES["procrastination_mob"]).duplicate(true)
-	_enemy_hp      = _enemy.max_hp
-	_enemy_max_hp  = _enemy.max_hp
+	var mult: float = GameManager.pending_encounter.get("difficulty_mult", 1.0)
+	_enemy_max_hp  = int(_enemy.max_hp * mult)
+	_enemy_hp      = _enemy_max_hp
 	_enemy_poise   = _enemy.max_poise
 	_enemy_max_poise = _enemy.max_poise
 

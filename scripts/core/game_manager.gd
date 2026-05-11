@@ -14,11 +14,39 @@ var max_fp:      int = 140
 var current_fp:  int = 140
 
 # ── Run state (reset each run) ────────────────────────────────────────────────
-var run_active:            bool           = false
-var run_location_sequence: Array[String]  = []   # shuffled enemy ids, boss last
-var run_current_index:     int            = 0
-var run_start_time:        float          = 0.0  # Time.get_unix_time_from_system()
-var run_defeated_enemies:  Array[String]  = []   # enemies beaten this run
+var run_active:            bool  = false
+var run_location_sequence: Array = []   # Array of {enemy_id, name, mult}, boss last
+var run_current_index:     int   = 0
+var run_start_time:        float = 0.0
+var run_defeated_enemies:  Array[String] = []
+
+# ── Location pool (20 named encounters, shuffled within tiers each run) ───────
+const LOCATION_POOL: Array = [
+	# Tier 1 — easy
+	{"enemy_id": "procrastination_mob", "name": "The Endless Feed",          "mult": 1.00},
+	{"enemy_id": "procrastination_mob", "name": "Notification Storm",        "mult": 1.10},
+	{"enemy_id": "hater",               "name": "The First Critic",          "mult": 0.65},
+	{"enemy_id": "procrastination_mob", "name": "The Research Hole",         "mult": 1.20},
+	{"enemy_id": "blank_page_omen",     "name": "The Blank Draft",           "mult": 0.65},
+	{"enemy_id": "hater",               "name": "The Comment Section",       "mult": 0.80},
+	# Tier 2 — medium
+	{"enemy_id": "procrastination_mob", "name": "The Planning Loop",         "mult": 1.40},
+	{"enemy_id": "blank_page_omen",     "name": "The First Sentence",        "mult": 0.88},
+	{"enemy_id": "hater",               "name": "The Algorithm Skeptic",     "mult": 1.00},
+	{"enemy_id": "blank_page_omen",     "name": "The Revision Spiral",       "mult": 1.05},
+	{"enemy_id": "procrastination_mob", "name": "The Tomorrow Promise",      "mult": 1.60},
+	{"enemy_id": "hater",               "name": "The Credibility Challenge", "mult": 1.15},
+	{"enemy_id": "blank_page_omen",     "name": "The Scope Creep",           "mult": 1.20},
+	# Tier 3 — hard
+	{"enemy_id": "hater",               "name": "The Imposter Voice",        "mult": 1.30},
+	{"enemy_id": "blank_page_omen",     "name": "The Deleted Draft",         "mult": 1.38},
+	{"enemy_id": "hater",               "name": "The Comparison Trap",       "mult": 1.45},
+	{"enemy_id": "blank_page_omen",     "name": "The Perfectionism Plateau", "mult": 1.55},
+	{"enemy_id": "hater",               "name": "The Last Gatekeeper",       "mult": 1.65},
+	{"enemy_id": "blank_page_omen",     "name": "The Final Blank",           "mult": 1.72},
+	# Boss — always last, never shuffled
+	{"enemy_id": "perfectionism_knight","name": "The Perfectionism Tower",   "mult": 1.00},
+]
 
 # ── Weapon progression (persists across runs) ─────────────────────────────────
 var owned_weapons:       Array[String]  = ["unarmed"]
@@ -73,21 +101,25 @@ func start_run(weapons: Array) -> void:
 	current_stamina      = max_stamina
 	current_fp           = max_fp
 
-	# Build shuffled location sequence: regular enemies random, boss always last
-	const REGULAR := ["procrastination_mob", "hater", "blank_page_omen"]
-	const BOSS    := "perfectionism_knight"
-	var pool := REGULAR.duplicate()
-	pool.shuffle()
-	pool.append(BOSS)
-	run_location_sequence.assign(pool)
+	# Shuffle within each difficulty tier; boss is always last
+	var tier1 := LOCATION_POOL.slice(0,  6).duplicate()
+	var tier2 := LOCATION_POOL.slice(6,  13).duplicate()
+	var tier3 := LOCATION_POOL.slice(13, 19).duplicate()
+	tier1.shuffle()
+	tier2.shuffle()
+	tier3.shuffle()
+	run_location_sequence = tier1 + tier2 + tier3 + [LOCATION_POOL[19]]
 
 func advance_run() -> void:
 	run_current_index += 1
 
-func current_enemy_id() -> String:
+func current_location_data() -> Dictionary:
 	if run_current_index < run_location_sequence.size():
 		return run_location_sequence[run_current_index]
-	return ""
+	return {}
+
+func current_enemy_id() -> String:
+	return current_location_data().get("enemy_id", "")
 
 func is_on_boss() -> bool:
 	return run_current_index == run_location_sequence.size() - 1

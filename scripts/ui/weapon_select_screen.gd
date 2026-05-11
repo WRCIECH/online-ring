@@ -83,6 +83,7 @@ func _build_weapon_card(weapon_id: String) -> Panel:
 	# Panel (not PanelContainer) so we can stack a Button overlay on top
 	var card := Panel.new()
 	card.custom_minimum_size = Vector2(240, 0)
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER  # don't stretch
 	_style_card(card, false)
 
 	# Content layer
@@ -157,6 +158,7 @@ func _build_weapon_card(weapon_id: String) -> Panel:
 	moves_hdr.text = "Movesets"
 	moves_hdr.add_theme_font_size_override("font_size", 11)
 	moves_hdr.add_theme_color_override("font_color", Color(0.50, 0.48, 0.55))
+	moves_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(moves_hdr)
 
 	var extra_ids := GameManager.get_weapon_extra_movesets(weapon_id)
@@ -164,6 +166,7 @@ func _build_weapon_card(weapon_id: String) -> Panel:
 		var ml := Label.new()
 		ml.text = "• " + moveset.get("name", "")
 		ml.add_theme_font_size_override("font_size", 11)
+		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(ml)
 
 	# Desc
@@ -172,6 +175,7 @@ func _build_weapon_card(weapon_id: String) -> Panel:
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	desc.add_theme_font_size_override("font_size", 11)
 	desc.add_theme_color_override("font_color", Color(0.50, 0.48, 0.55))
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(desc)
 
 	# Transparent Button overlay — catches clicks anywhere on the card,
