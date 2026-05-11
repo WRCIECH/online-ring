@@ -25,11 +25,14 @@ func _ready() -> void:
 	_sprite.expand_mode  = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 	_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_sprite.visible = false
-	_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE  # don't swallow events
+	_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_sprite)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE   # disabled until set_interactive(true)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mouse_entered.connect(func(): _hovered = true; queue_redraw())
 	mouse_exited.connect(_on_mouse_exit)
+	# Re-apply enemy_id if set_enemy() was called before entering the tree
+	if not enemy_id.is_empty():
+		set_enemy(enemy_id)
 
 func set_interactive(on: bool) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if on else Control.MOUSE_FILTER_IGNORE
@@ -42,6 +45,8 @@ func set_interactive(on: bool) -> void:
 
 func set_enemy(id: String) -> void:
 	enemy_id = id
+	if _sprite == null:   # called before _ready() — will be applied in _ready()
+		return
 	var path := "res://assets/sprites/enemies/%s.png" % id
 	if ResourceLoader.exists(path):
 		_sprite.texture = load(path)

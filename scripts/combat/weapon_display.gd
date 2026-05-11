@@ -16,9 +16,14 @@ func _ready() -> void:
 	_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_sprite.visible = false
 	add_child(_sprite)
+	# Re-apply weapon_id if set_weapon() was called before entering the tree
+	if not weapon_id.is_empty():
+		set_weapon(weapon_id)
 
 func set_weapon(id: String) -> void:
 	weapon_id = id
+	if _sprite == null:   # called before _ready() — will be applied in _ready()
+		return
 	var path := "res://assets/sprites/weapons/%s.png" % id
 	if ResourceLoader.exists(path):
 		_sprite.texture = load(path)
