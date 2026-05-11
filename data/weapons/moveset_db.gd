@@ -127,7 +127,7 @@ const MOVES: Dictionary = {
 		"types":        ["unarmed", "confidence", "rare"],
 		"steps": [
 			{"name": "Write one opinion without using words like 'maybe', 'perhaps', or 'I think'",
-			                                                            "time": 180, "base_damage": 35, "poise_damage": 15},
+																		"time": 180, "base_damage": 35, "poise_damage": 15},
 		],
 	},
 

@@ -74,20 +74,32 @@ func _build_ui() -> void:
 	_begin_btn.offset_right  = -490
 	add_child(_begin_btn)
 
-func _build_weapon_card(weapon_id: String) -> PanelContainer:
+func _build_weapon_card(weapon_id: String) -> Panel:
 	var wdata: Dictionary = WeaponDB.WEAPONS.get(weapon_id, {})
-	var wlevel: int       = GameManager.get_weapon_level(weapon_id)
-	var wxp:    float     = GameManager.get_weapon_xp(weapon_id)
-	var thres:  float     = WeaponDB.xp_for_next_level(wdata, wlevel)
+	var wlevel: int  = GameManager.get_weapon_level(weapon_id)
+	var wxp:    float = GameManager.get_weapon_xp(weapon_id)
+	var thres:  float = WeaponDB.xp_for_next_level(wdata, wlevel)
 
-	var card := PanelContainer.new()
+	# Panel (not PanelContainer) so we can stack a Button overlay on top
+	var card := Panel.new()
 	card.custom_minimum_size = Vector2(240, 0)
 	_style_card(card, false)
 
+	# Content layer
 	var m := _margin(card, 14)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)
 	m.add_child(vbox)
+
+	# Weapon picture
+	var visual := WeaponDisplay.new()
+	visual.custom_minimum_size = Vector2(0, 130)
+	visual.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	visual.set_weapon(weapon_id)
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(visual)
+
+	vbox.add_child(HSeparator.new())
 
 	# Name
 	var name_lbl := Label.new()
@@ -107,20 +119,21 @@ func _build_weapon_card(weapon_id: String) -> PanelContainer:
 	# XP bar
 	if thres > 0.0:
 		var xp_bar := ProgressBar.new()
-		xp_bar.max_value    = thres
-		xp_bar.value        = wxp
+		xp_bar.max_value       = thres
+		xp_bar.value           = wxp
 		xp_bar.show_percentage = false
 		xp_bar.custom_minimum_size = Vector2(0, 8)
+		xp_bar.mouse_filter    = Control.MOUSE_FILTER_IGNORE
 		var fill := StyleBoxFlat.new()
 		fill.bg_color = Color(0.55, 0.42, 0.12)
 		fill.set_corner_radius_all(4)
-		var bg := StyleBoxFlat.new()
-		bg.bg_color = Color(0.12, 0.10, 0.08)
-		bg.set_corner_radius_all(4)
-		bg.set_border_width_all(1)
-		bg.border_color = Color(0.30, 0.24, 0.10)
+		var bg_sbox := StyleBoxFlat.new()
+		bg_sbox.bg_color = Color(0.12, 0.10, 0.08)
+		bg_sbox.set_corner_radius_all(4)
+		bg_sbox.set_border_width_all(1)
+		bg_sbox.border_color = Color(0.30, 0.24, 0.10)
 		xp_bar.add_theme_stylebox_override("fill",       fill)
-		xp_bar.add_theme_stylebox_override("background", bg)
+		xp_bar.add_theme_stylebox_override("background", bg_sbox)
 		vbox.add_child(xp_bar)
 
 		var xp_lbl := Label.new()
@@ -161,12 +174,17 @@ func _build_weapon_card(weapon_id: String) -> PanelContainer:
 	desc.add_theme_color_override("font_color", Color(0.50, 0.48, 0.55))
 	vbox.add_child(desc)
 
-	# Click to select
-	card.mouse_filter = Control.MOUSE_FILTER_STOP
-	card.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_toggle_weapon(weapon_id)
-	)
+	# Transparent Button overlay — catches clicks anywhere on the card,
+	# regardless of which child the cursor is over.
+	var overlay := Button.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.flat = true
+	overlay.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
+		overlay.add_theme_stylebox_override(s, empty)
+	overlay.pressed.connect(func(): _toggle_weapon(weapon_id))
+	card.add_child(overlay)
 
 	return card
 
@@ -186,7 +204,7 @@ func _refresh_card_styles() -> void:
 	for wid in _weapon_cards:
 		_style_card(_weapon_cards[wid], _selected_weapons.has(wid))
 
-func _style_card(card: PanelContainer, selected: bool) -> void:
+func _style_card(card: Panel, selected: bool) -> void:
 	var sbox := StyleBoxFlat.new()
 	sbox.set_corner_radius_all(6)
 	if selected:

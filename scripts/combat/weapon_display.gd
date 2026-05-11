@@ -43,6 +43,7 @@ func _draw() -> void:
 	var H  := size.y
 
 	match weapon_id:
+		"unarmed":         _fist(cx, H)
 		"writers_quill":   _quill(cx, H)
 		"dagger":          _dagger(cx, H)
 		"greatsword":      _greatsword(cx, H)
@@ -51,6 +52,56 @@ func _draw() -> void:
 		_:                 _generic(cx, H)
 
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+# ── Unarmed / Fist ───────────────────────────────────────────────────────────
+func _fist(cx: float, H: float) -> void:
+	var skin  := Color(0.82, 0.68, 0.50)
+	var dark  := Color(0.52, 0.38, 0.24)
+	var knuck := Color(0.92, 0.78, 0.60)
+	var gold  := Color(0.90, 0.75, 0.20)
+
+	# Back fist (left, slightly behind)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx - 28, H*0.32),
+		Vector2(cx - 4,  H*0.32),
+		Vector2(cx - 2,  H*0.48),
+		Vector2(cx - 4,  H*0.62),
+		Vector2(cx - 26, H*0.62),
+		Vector2(cx - 30, H*0.48),
+	]), dark)
+	draw_line(Vector2(cx - 28, H*0.39), Vector2(cx - 4, H*0.39), Color(0.38, 0.25, 0.14), 1.5)
+
+	# Front fist (right, main)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx + 2,  H*0.26),
+		Vector2(cx + 30, H*0.26),
+		Vector2(cx + 34, H*0.44),
+		Vector2(cx + 30, H*0.60),
+		Vector2(cx + 2,  H*0.60),
+		Vector2(cx - 2,  H*0.44),
+	]), skin)
+	# Knuckle highlights
+	draw_line(Vector2(cx + 2, H*0.33), Vector2(cx + 30, H*0.33), knuck, 2.0)
+	for i in range(4):
+		var kx := cx + 4.0 + i * 7.0
+		draw_circle(Vector2(kx, H*0.28), 2.5, knuck)
+	# Thumb
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx - 2,  H*0.44),
+		Vector2(cx - 14, H*0.36),
+		Vector2(cx - 12, H*0.56),
+		Vector2(cx,      H*0.60),
+	]), skin)
+
+	# Impact lines radiating from the right
+	var impact_pts: Array = [
+		[Vector2(cx + 38, H*0.18), Vector2(cx + 52, H*0.12)],
+		[Vector2(cx + 40, H*0.30), Vector2(cx + 56, H*0.28)],
+		[Vector2(cx + 40, H*0.44), Vector2(cx + 56, H*0.46)],
+		[Vector2(cx + 36, H*0.56), Vector2(cx + 50, H*0.62)],
+	]
+	for pts in impact_pts:
+		draw_line(pts[0], pts[1], gold, 2.0)
 
 # ── Writers Quill ─────────────────────────────────────────────────────────────
 func _quill(cx: float, H: float) -> void:

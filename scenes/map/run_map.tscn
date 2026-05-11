@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://run_map"]
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/map/run_map.gd" id="1"]
 
 [node name="RunMap" type="Control"]
-script = ExtResource("run_map_script")
-
-[ext_resource type="Script" path="res://scripts/map/run_map.gd" id="run_map_script"]
+script = ExtResource("1")
