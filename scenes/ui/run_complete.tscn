@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://run_complete"]
+
+[ext_resource type="Script" path="res://scripts/ui/run_complete_screen.gd" id="run_complete_script"]
+
+[node name="RunComplete" type="Control"]
+script = ExtResource("run_complete_script")

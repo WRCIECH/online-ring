@@ -122,7 +122,9 @@ func _gap(parent: VBoxContainer, height: int) -> void:
 
 func _on_continue() -> void:
 	SaveManager.load_game()
-	get_tree().change_scene_to_file("res://scenes/map/world_map.tscn")
+	var dest := "res://scenes/map/run_map.tscn" if GameManager.run_active \
+				else "res://scenes/ui/weapon_select.tscn"
+	get_tree().change_scene_to_file(dest)
 
 func _on_new_game() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
@@ -138,10 +140,9 @@ func _on_erase_confirmed() -> void:
 	_go_fresh()
 
 func _go_fresh() -> void:
-	# GameManager vars are already at class-level defaults.
-	# Calling load_game() on empty files re-confirms that and emits load_completed.
-	SaveManager.load_game()
-	get_tree().change_scene_to_file("res://scenes/map/world_map.tscn")
+	GameManager.reset()
+	SaveManager.save_game()
+	get_tree().change_scene_to_file("res://scenes/ui/weapon_select.tscn")
 
 # ── Keyboard ──────────────────────────────────────────────────────────────────
 

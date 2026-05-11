@@ -1,78 +1,53 @@
 extends Node
 
-# ── Stats ──────────────────────────────────────────────────────────────────
-var stats: Dictionary = {
-	"VIG": 10,
-	"STR": 10,
-	"DEX": 10,
-	"INT": 10,
-	"FAI": 10,
-	"ARC": 10,
-}
-
+# ── Stats ─────────────────────────────────────────────────────────────────────
+# VIG → HP   |   END → Stamina   |   MIND → FP
+var stats: Dictionary = { "VIG": 10, "END": 10, "MIND": 10 }
 var level: int = 1
-var runes: int = 0
-var runes_at_death: int = 0
-var death_location: String = ""
 
-# ── Derived stats ───────────────────────────────────────────────────────────
-var max_hp: int = 300
-var current_hp: int = 300
-var max_fp: int = 100
-var current_fp: int = 100
-var max_stamina: int = 100
-var current_stamina: int = 100
+# ── Derived stats ─────────────────────────────────────────────────────────────
+var max_hp:      int = 300
+var current_hp:  int = 300
+var max_stamina: int = 130
+var current_stamina: int = 130
+var max_fp:      int = 140
+var current_fp:  int = 140
 
-# ── World state ─────────────────────────────────────────────────────────────
-var current_location: String = ""
-var last_site_of_grace: String = ""
-var discovered_locations: Array[String] = []
-var defeated_enemies: Array[String] = []
-var unlocked_areas: Array[String] = ["starting_area"]
+# ── Run state (reset each run) ────────────────────────────────────────────────
+var run_active:            bool           = false
+var run_location_sequence: Array[String]  = []   # shuffled enemy ids, boss last
+var run_current_index:     int            = 0
+var run_start_time:        float          = 0.0  # Time.get_unix_time_from_system()
+var run_defeated_enemies:  Array[String]  = []   # enemies beaten this run
 
-# ── Equipment ───────────────────────────────────────────────────────────────
-var equipped_weapon: String = "writers_quill"
-var equipped_seal: String = ""
-var equipped_armor: String = ""
-var equipped_talismans: Array[String] = ["", ""]
+# ── Weapon progression (persists across runs) ─────────────────────────────────
+var owned_weapons:       Array[String]  = ["unarmed"]
+var owned_movesets:      Array[String]  = []
+var equipped_run_weapons: Array[String] = []        # up to 2, chosen at run start
+var weapon_xp:           Dictionary    = {}         # weapon_id → float
+var weapon_level:        Dictionary    = {}         # weapon_id → int
+var weapon_extra_movesets: Dictionary  = {}         # weapon_id → Array[String]
 
-# ── Inventory ───────────────────────────────────────────────────────────────
-var weapons: Array[String] = ["writers_quill"]
-var items: Array[Dictionary] = []
+# ── Combat handoff ────────────────────────────────────────────────────────────
+var pending_encounter:   Dictionary = {}
+var pending_run_reward:  String     = ""   # moveset id set by combat on boss victory
 
-# ── Combat ───────────────────────────────────────────────────────────────────
-var pending_encounter: Dictionary = {}
-
-# ── FAI / faith system ────────────────────────────────────────────────────────
-# 0–100. Drops when player uses incantations without genuine belief.
-# Recovers when player confirms faith honestly. Affects FAI incantation damage.
-var faith_integrity: int = 100
-
-# ── World map ─────────────────────────────────────────────────────────────────
-# 0 = no seed yet (terrain generated on first WorldMap load, then persisted).
-var map_seed: int = 0
-
-# ── Signals ─────────────────────────────────────────────────────────────────
+# ── Signals ───────────────────────────────────────────────────────────────────
 signal stats_changed
 signal hp_changed(new_hp: int, max_hp: int)
 signal fp_changed(new_fp: int, max_fp: int)
 signal stamina_changed(new_stamina: int, max_stamina: int)
-signal runes_changed(new_runes: int)
-signal location_changed(new_location: String)
-signal player_died
 
 func _ready() -> void:
 	recalculate_derived_stats()
 
-# ── Derived stat computation ─────────────────────────────────────────────────
+# ── Derived stat computation ──────────────────────────────────────────────────
 func recalculate_derived_stats() -> void:
-	var vig: int     = stats["VIG"]
-	var str_val: int = stats["STR"]
-	var dex: int     = stats["DEX"]
-	var int_val: int = stats["INT"]
-	var fai: int     = stats["FAI"]
+	var vig:  int = stats["VIG"]
+	var end_:  int = stats["END"]
+	var mind: int = stats["MIND"]
 
-	# HP scales steeply with VIG (diminishing returns above 40)
+	# HP: same diminishing-returns curve as before, keyed on VIG
 	if vig <= 25:
 		max_hp = 300 + vig * 12
 	elif vig <= 40:
@@ -80,47 +55,94 @@ func recalculate_derived_stats() -> void:
 	else:
 		max_hp = 870 + (vig - 40) * 8
 
-	max_fp = 80 + int_val * 6 + fai * 5
-	max_stamina = 80 + str_val * 3 + dex * 4
+	max_stamina = 80 + end_ * 5
+	max_fp      = 80 + mind * 6
 
-	current_hp = min(current_hp, max_hp)
-	current_fp = min(current_fp, max_fp)
-	current_stamina = min(current_stamina, max_stamina)
+	current_hp      = mini(current_hp,      max_hp)
+	current_stamina = mini(current_stamina,  max_stamina)
+	current_fp      = mini(current_fp,       max_fp)
 
-# ── Rune economy ─────────────────────────────────────────────────────────────
-func add_runes(amount: int) -> void:
-	runes += amount
-	runes_changed.emit(runes)
+# ── Run management ────────────────────────────────────────────────────────────
+func start_run(weapons: Array) -> void:
+	equipped_run_weapons = weapons.duplicate()
+	run_active           = true
+	run_current_index    = 0
+	run_start_time       = Time.get_unix_time_from_system()
+	run_defeated_enemies = []
+	current_hp           = max_hp
+	current_stamina      = max_stamina
+	current_fp           = max_fp
 
-func spend_runes(amount: int) -> bool:
-	if runes < amount:
+	# Build shuffled location sequence: regular enemies random, boss always last
+	const REGULAR := ["procrastination_mob", "hater", "blank_page_omen"]
+	const BOSS    := "perfectionism_knight"
+	var pool := REGULAR.duplicate()
+	pool.shuffle()
+	pool.append(BOSS)
+	run_location_sequence.assign(pool)
+
+func advance_run() -> void:
+	run_current_index += 1
+
+func current_enemy_id() -> String:
+	if run_current_index < run_location_sequence.size():
+		return run_location_sequence[run_current_index]
+	return ""
+
+func is_on_boss() -> bool:
+	return run_current_index == run_location_sequence.size() - 1
+
+func end_run_failure() -> void:
+	run_active = false
+
+func end_run_victory() -> void:
+	run_active = false
+
+func run_elapsed_seconds() -> float:
+	if not run_active:
+		return 0.0
+	return Time.get_unix_time_from_system() - run_start_time
+
+# ── Weapon XP & levelling ─────────────────────────────────────────────────────
+func add_weapon_xp(weapon_id: String, amount: float) -> bool:
+	if not weapon_xp.has(weapon_id):
+		weapon_xp[weapon_id] = 0.0
+	weapon_xp[weapon_id] += amount
+	return _check_weapon_level_up(weapon_id)
+
+func _check_weapon_level_up(weapon_id: String) -> bool:
+	var wdata: Dictionary = WeaponDB.WEAPONS.get(weapon_id, {})
+	if wdata.is_empty():
 		return false
-	runes -= amount
-	runes_changed.emit(runes)
-	return true
+	var cur_level: int = weapon_level.get(weapon_id, 1)
+	var threshold: float = WeaponDB.xp_for_next_level(wdata, cur_level)
+	if threshold <= 0.0:
+		return false   # already max level
+	if weapon_xp.get(weapon_id, 0.0) >= threshold:
+		weapon_level[weapon_id] = cur_level + 1
+		return true
+	return false
 
-func rune_cost_for_next_level() -> int:
-	# Approximates Elden Ring's level cost curve
-	var cost := int(0.02 * pow(level, 3) + 3.06 * pow(level, 2) + 105.6 * level - 895)
-	return max(cost, 100)
+func get_weapon_level(weapon_id: String) -> int:
+	return weapon_level.get(weapon_id, 1)
 
-# ── Combat actions ───────────────────────────────────────────────────────────
+func get_weapon_xp(weapon_id: String) -> float:
+	return weapon_xp.get(weapon_id, 0.0)
+
+func get_weapon_extra_movesets(weapon_id: String) -> Array:
+	return weapon_extra_movesets.get(weapon_id, [])
+
+func set_weapon_extra_movesets(weapon_id: String, ids: Array) -> void:
+	weapon_extra_movesets[weapon_id] = ids.duplicate()
+
+# ── HP / Stamina / FP helpers ─────────────────────────────────────────────────
 func take_damage(amount: int) -> void:
-	current_hp = max(0, current_hp - amount)
+	current_hp = maxi(0, current_hp - amount)
 	hp_changed.emit(current_hp, max_hp)
-	if current_hp == 0:
-		_on_player_death()
 
 func heal(amount: int) -> void:
-	current_hp = min(max_hp, current_hp + amount)
+	current_hp = mini(max_hp, current_hp + amount)
 	hp_changed.emit(current_hp, max_hp)
-
-func spend_fp(amount: int) -> bool:
-	if current_fp < amount:
-		return false
-	current_fp -= amount
-	fp_changed.emit(current_fp, max_fp)
-	return true
 
 func spend_stamina(amount: int) -> bool:
 	if current_stamina < amount:
@@ -130,34 +152,19 @@ func spend_stamina(amount: int) -> bool:
 	return true
 
 func restore_stamina(amount: int) -> void:
-	current_stamina = min(max_stamina, current_stamina + amount)
+	current_stamina = mini(max_stamina, current_stamina + amount)
 	stamina_changed.emit(current_stamina, max_stamina)
 
-# ── Death ────────────────────────────────────────────────────────────────────
-func _on_player_death() -> void:
-	runes_at_death = runes
-	death_location = current_location
-	runes = 0
-	runes_changed.emit(runes)
-	current_hp = max_hp
-	current_location = last_site_of_grace
-	location_changed.emit(current_location)
-	player_died.emit()
-
-func recover_runes_at(location: String) -> bool:
-	if location != death_location or runes_at_death == 0:
+func spend_fp(amount: int) -> bool:
+	if current_fp < amount:
 		return false
-	add_runes(runes_at_death)
-	runes_at_death = 0
-	death_location = ""
+	current_fp -= amount
+	fp_changed.emit(current_fp, max_fp)
 	return true
 
-# ── Leveling ─────────────────────────────────────────────────────────────────
-func level_up(stat: String) -> bool:
+# ── Post-run levelling (one point per stat, one per completed run) ────────────
+func level_up_stat(stat: String) -> bool:
 	if not stats.has(stat):
-		return false
-	var cost := rune_cost_for_next_level()
-	if not spend_runes(cost):
 		return false
 	stats[stat] += 1
 	level += 1
@@ -165,80 +172,65 @@ func level_up(stat: String) -> bool:
 	stats_changed.emit()
 	return true
 
-# ── Reset ────────────────────────────────────────────────────────────────────
-func reset() -> void:
-	stats             = {"VIG": 10, "STR": 10, "DEX": 10, "INT": 10, "FAI": 10, "ARC": 10}
-	level             = 1
-	runes             = 0
-	runes_at_death    = 0
-	death_location    = ""
-	current_location  = ""
-	last_site_of_grace = ""
-	discovered_locations = []
-	defeated_enemies  = []
-	unlocked_areas    = ["starting_area"]
-	equipped_weapon   = "writers_quill"
-	equipped_seal     = ""
-	equipped_armor    = ""
-	equipped_talismans = ["", ""]
-	weapons           = ["writers_quill"]
-	items             = []
-	pending_encounter = {}
-	faith_integrity   = 100
-	map_seed          = 0   # triggers new terrain on next WorldMap load
-	recalculate_derived_stats()
-	current_hp      = max_hp
-	current_fp      = max_fp
-	current_stamina = max_stamina
-	stats_changed.emit()
-
-# ── Save / Load ──────────────────────────────────────────────────────────────
+# ── Save / Load ───────────────────────────────────────────────────────────────
 func get_save_data() -> Dictionary:
 	return {
-		"stats": stats.duplicate(),
-		"level": level,
-		"runes": runes,
-		"runes_at_death": runes_at_death,
-		"death_location": death_location,
-		"current_hp": current_hp,
-		"current_fp": current_fp,
-		"current_stamina": current_stamina,
-		"current_location": current_location,
-		"last_site_of_grace": last_site_of_grace,
-		"discovered_locations": discovered_locations.duplicate(),
-		"defeated_enemies": defeated_enemies.duplicate(),
-		"unlocked_areas": unlocked_areas.duplicate(),
-		"equipped_weapon": equipped_weapon,
-		"equipped_seal": equipped_seal,
-		"equipped_armor": equipped_armor,
-		"equipped_talismans": equipped_talismans.duplicate(),
-		"weapons": weapons.duplicate(),
-		"items": items.duplicate(),
-		"faith_integrity": faith_integrity,
-		"map_seed":        map_seed,
+		"stats":                  stats.duplicate(),
+		"level":                  level,
+		"owned_weapons":          owned_weapons.duplicate(),
+		"owned_movesets":         owned_movesets.duplicate(),
+		"equipped_run_weapons":   equipped_run_weapons.duplicate(),
+		"weapon_xp":              weapon_xp.duplicate(),
+		"weapon_level":           weapon_level.duplicate(),
+		"weapon_extra_movesets":  weapon_extra_movesets.duplicate(),
+		"current_hp":             current_hp,
+		"current_stamina":        current_stamina,
+		"current_fp":             current_fp,
+		"run_active":             run_active,
+		"run_location_sequence":  run_location_sequence.duplicate(),
+		"run_current_index":      run_current_index,
+		"run_start_time":         run_start_time,
+		"run_defeated_enemies":   run_defeated_enemies.duplicate(),
 	}
 
 func load_save_data(data: Dictionary) -> void:
-	stats = data.get("stats", stats)
-	level = data.get("level", 1)
-	runes = data.get("runes", 0)
-	runes_at_death = data.get("runes_at_death", 0)
-	death_location = data.get("death_location", "")
-	current_location = data.get("current_location", "")
-	last_site_of_grace = data.get("last_site_of_grace", "")
-	discovered_locations.assign(data.get("discovered_locations", []))
-	defeated_enemies.assign(data.get("defeated_enemies", []))
-	unlocked_areas.assign(data.get("unlocked_areas", ["starting_area"]))
-	equipped_weapon = data.get("equipped_weapon", "")
-	equipped_seal   = data.get("equipped_seal",   "")
-	equipped_armor  = data.get("equipped_armor",  "")
-	equipped_talismans.assign(data.get("equipped_talismans", ["", ""]))
-	weapons.assign(data.get("weapons", []))
-	items.assign(data.get("items", []))
-	faith_integrity = data.get("faith_integrity", 100)
-	map_seed        = data.get("map_seed", 0)
+	stats  = data.get("stats", {"VIG": 10, "END": 10, "MIND": 10})
+	level  = data.get("level", 1)
+	owned_weapons.assign(data.get("owned_weapons", ["unarmed"]))
+	owned_movesets.assign(data.get("owned_movesets", []))
+	equipped_run_weapons.assign(data.get("equipped_run_weapons", []))
+	weapon_xp              = data.get("weapon_xp", {})
+	weapon_level           = data.get("weapon_level", {})
+	weapon_extra_movesets  = data.get("weapon_extra_movesets", {})
+	run_active             = data.get("run_active", false)
+	run_location_sequence.assign(data.get("run_location_sequence", []))
+	run_current_index      = data.get("run_current_index", 0)
+	run_start_time         = data.get("run_start_time", 0.0)
+	run_defeated_enemies.assign(data.get("run_defeated_enemies", []))
 	recalculate_derived_stats()
-	current_hp = data.get("current_hp", max_hp)
-	current_fp = data.get("current_fp", max_fp)
-	current_stamina = data.get("current_stamina", max_stamina)
+	current_hp      = data.get("current_hp",      max_hp)
+	current_stamina = data.get("current_stamina",  max_stamina)
+	current_fp      = data.get("current_fp",       max_fp)
+	stats_changed.emit()
+
+# ── Hard reset ────────────────────────────────────────────────────────────────
+func reset() -> void:
+	stats                  = {"VIG": 10, "END": 10, "MIND": 10}
+	level                  = 1
+	owned_weapons          = ["unarmed"]
+	owned_movesets         = []
+	equipped_run_weapons   = []
+	weapon_xp              = {}
+	weapon_level           = {}
+	weapon_extra_movesets  = {}
+	run_active             = false
+	run_location_sequence  = []
+	run_current_index      = 0
+	run_start_time         = 0.0
+	run_defeated_enemies   = []
+	pending_encounter      = {}
+	recalculate_derived_stats()
+	current_hp      = max_hp
+	current_stamina = max_stamina
+	current_fp      = max_fp
 	stats_changed.emit()

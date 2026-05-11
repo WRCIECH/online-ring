@@ -1,127 +1,156 @@
 class_name MovesetDB
 
-# All individual moves keyed by their unique ID.
-# Weapons reference these by ID; see WeaponDB.get_moveset().
+# Each moveset has one or more steps. Each step is an independent attack action
+# with its own real-world task and countdown timer.
+# Damage and XP scale with step duration: base_damage and XP = step.time / 10.
+# scaling_stat applies to every step in the moveset.
+
 const MOVES: Dictionary = {
-	# ── Writer's Quill ────────────────────────────────────────────────────────
-	"quick_note": {
-		"id": "quick_note",
-		"name": "R1 — Quick Note",
-		"real_task": "Write 3 bullet points about your current topic or project.",
-		"stamina_cost": 15, "fp_cost": 0,
-		"base_damage": 18, "poise_damage": 8,
-		"scaling_stat": "DEX",
-	},
-	"focused_write": {
-		"id": "focused_write",
-		"name": "R2 — Focused Write",
-		"real_task": "Write for 20 minutes without switching tabs or checking your phone.",
-		"stamina_cost": 30, "fp_cost": 0,
-		"base_damage": 35, "poise_damage": 16,
-		"scaling_stat": "STR",
+
+	# ── Unarmed: constant (always available) ──────────────────────────────────
+
+	"starter_chain": {
+		"id":           "starter_chain",
+		"name":         "Starter Chain",
+		"scaling_stat": "END",
+		"stamina_cost": 10,
+		"types":        ["unarmed", "starter", "daily"],
+		"steps": [
+			{"name": "Write continuously for 5 minutes",               "time": 300, "base_damage": 40, "poise_damage": 16},
+			{"name": "Write one sentence summarising what you wrote",   "time":  60, "base_damage": 15, "poise_damage":  6},
+			{"name": "Write one concrete example related to it",        "time":  90, "base_damage": 18, "poise_damage":  7},
+		],
 	},
 
-	# ── Greatsword ────────────────────────────────────────────────────────────
-	"mindmap": {
-		"id": "mindmap",
-		"name": "R1 — Mindmap",
-		"real_task": "Create a mindmap of your topic in 10 minutes.",
-		"stamina_cost": 18, "fp_cost": 0,
-		"base_damage": 30, "poise_damage": 14,
-		"scaling_stat": "STR",
-	},
-	"argument_section": {
-		"id": "argument_section",
-		"name": "R2 — Argument",
-		"real_task": "Write one argumentative section of 300+ words without pausing.",
-		"stamina_cost": 40, "fp_cost": 0,
-		"base_damage": 55, "poise_damage": 25,
-		"scaling_stat": "STR",
-	},
-	"aow_sword_of_night": {
-		"id": "aow_sword_of_night",
-		"name": "AoW — Sword of Night",
-		"real_task": "Write the core thesis of your topic from scratch in 15 minutes.",
-		"stamina_cost": 0, "fp_cost": 20,
-		"base_damage": 70, "poise_damage": 35,
-		"scaling_stat": "STR",
+	"no_backspace": {
+		"id":           "no_backspace",
+		"name":         "No Backspace",
+		"scaling_stat": "END",
+		"stamina_cost": 20,
+		"types":        ["unarmed", "anti_perfectionism", "daily"],
+		"steps": [
+			{"name": "Write for 10 minutes without deleting anything",  "time": 600, "base_damage": 65, "poise_damage": 25},
+		],
 	},
 
-	# ── Dagger ────────────────────────────────────────────────────────────────
-	"hook_sentence": {
-		"id": "hook_sentence",
-		"name": "R1 — Hook",
-		"real_task": "Write 3 different opening sentences for your piece.",
-		"stamina_cost": 12, "fp_cost": 0,
-		"base_damage": 22, "poise_damage": 10,
-		"scaling_stat": "DEX",
-	},
-	"voice_memo": {
-		"id": "voice_memo",
-		"name": "R2 — Voice Memo",
-		"real_task": "Record a 2-minute voice memo talking through your main argument.",
-		"stamina_cost": 22, "fp_cost": 0,
-		"base_damage": 38, "poise_damage": 16,
-		"scaling_stat": "DEX",
+	# ── Unarmed: earnable via enemy drops ─────────────────────────────────────
+
+	"immediate_strike": {
+		"id":           "immediate_strike",
+		"name":         "Immediate Strike",
+		"scaling_stat": "END",
+		"stamina_cost": 5,
+		"types":        ["unarmed", "anti_hesitation", "daily"],
+		"steps": [
+			{"name": "Open document and write first sentence within 10 seconds", "time":  10, "base_damage":  8, "poise_damage":  4},
+			{"name": "Continue writing for 2 minutes",                           "time": 120, "base_damage": 22, "poise_damage":  9},
+		],
 	},
 
-	# ── Viral Hook ────────────────────────────────────────────────────────────
-	"emotional_story": {
-		"id": "emotional_story",
-		"name": "R1 — Emotional Story",
-		"real_task": "Write 3 emotionally resonant sentences about a real personal experience related to your topic.",
-		"stamina_cost": 14, "fp_cost": 0,
-		"base_damage": 14, "poise_damage": 7,
-		"scaling_stat": "ARC",
-		"status_buildup": { "bleed": 28 },
-	},
-	"niche_discovery": {
-		"id": "niche_discovery",
-		"name": "R2 — Niche Discovery",
-		"real_task": "Find and share one piece of genuinely obscure knowledge your audience almost certainly doesn't know.",
-		"stamina_cost": 22, "fp_cost": 0,
-		"base_damage": 22, "poise_damage": 10,
-		"scaling_stat": "ARC",
-		"status_buildup": { "bleed": 42, "frost": 20 },
-	},
-	"aow_controversy": {
-		"id": "aow_controversy",
-		"name": "AoW — Controversy Drop",
-		"real_task": "Write one genuinely controversial take you actually believe and are prepared to defend publicly.",
-		"stamina_cost": 0, "fp_cost": 18,
-		"base_damage": 30, "poise_damage": 18,
-		"scaling_stat": "ARC",
-		"status_buildup": { "madness": 60 },
-		"self_risk": true,
+	"single_thought": {
+		"id":           "single_thought",
+		"name":         "Single Thought",
+		"scaling_stat": "END",
+		"stamina_cost": 8,
+		"types":        ["unarmed", "opinion", "daily"],
+		"steps": [
+			{"name": "Write one opinion in a single sentence",  "time":  60, "base_damage": 15, "poise_damage":  6},
+			{"name": "Write one sentence defending it",         "time": 120, "base_damage": 22, "poise_damage":  9},
+		],
 	},
 
-	# ── Sacred Seal ───────────────────────────────────────────────────────────
-	"community_post": {
-		"id": "community_post",
-		"name": "R1 — Community Post",
-		"real_task": "Publish an unfinished thought or open question and genuinely invite your audience's perspective.",
-		"stamina_cost": 12, "fp_cost": 0,
-		"base_damage": 14, "poise_damage": 6,
-		"scaling_stat": "FAI",
-		"is_incantation": false,
+	"explain_simply": {
+		"id":           "explain_simply",
+		"name":         "Explain Simply",
+		"scaling_stat": "END",
+		"stamina_cost": 10,
+		"types":        ["unarmed", "clarity", "daily"],
+		"steps": [
+			{"name": "Explain your idea in under 50 words",     "time": 180, "base_damage": 28, "poise_damage": 12},
+			{"name": "Rewrite it using simpler language",       "time": 180, "base_damage": 28, "poise_damage": 12},
+		],
 	},
-	"deep_response": {
-		"id": "deep_response",
-		"name": "R2 — Deep Response",
-		"real_task": "Write a genuinely thoughtful reply to 3 comments or messages from your community today.",
-		"stamina_cost": 22, "fp_cost": 0,
-		"base_damage": 30, "poise_damage": 15,
-		"scaling_stat": "FAI",
-		"is_incantation": false,
+
+	"concrete_hit": {
+		"id":           "concrete_hit",
+		"name":         "Concrete Hit",
+		"scaling_stat": "END",
+		"stamina_cost": 15,
+		"types":        ["unarmed", "examples", "daily"],
+		"steps": [
+			{"name": "Write 3 concrete examples related to your topic", "time": 300, "base_damage": 40, "poise_damage": 16},
+		],
 	},
-	"aow_manifesto": {
-		"id": "aow_manifesto",
-		"name": "AoW — Manifesto",
-		"real_task": "Write your core creative manifesto in 200+ words: what you believe, why it matters, who it's for.",
-		"stamina_cost": 0, "fp_cost": 30,
-		"base_damage": 85, "poise_damage": 42,
-		"scaling_stat": "FAI",
-		"is_incantation": true,
+
+	"question_jab": {
+		"id":           "question_jab",
+		"name":         "Question Jab",
+		"scaling_stat": "END",
+		"stamina_cost": 15,
+		"types":        ["unarmed", "curiosity", "daily"],
+		"steps": [
+			{"name": "Write 5 genuine questions about your topic",      "time": 300, "base_damage": 38, "poise_damage": 14},
+		],
+	},
+
+	"momentum_combo": {
+		"id":           "momentum_combo",
+		"name":         "Momentum Combo",
+		"scaling_stat": "END",
+		"stamina_cost": 15,
+		"types":        ["unarmed", "momentum", "daily"],
+		"steps": [
+			{"name": "Write 100 words",                                 "time": 300, "base_damage": 35, "poise_damage": 14},
+			{"name": "Write another 100 words immediately after",       "time": 300, "base_damage": 45, "poise_damage": 18},
+		],
+	},
+
+	"recovery_roll": {
+		"id":           "recovery_roll",
+		"name":         "Recovery Roll",
+		"scaling_stat": "END",
+		"stamina_cost": 5,
+		"types":        ["unarmed", "recovery", "daily"],
+		"steps": [
+			{"name": "Return to your document after distraction",       "time":  30, "base_damage": 10, "poise_damage":  4},
+			{"name": "Write for 2 more minutes",                        "time": 120, "base_damage": 22, "poise_damage":  9},
+		],
+	},
+
+	# ── Unarmed: rare drops only ───────────────────────────────────────────────
+
+	"raw_take": {
+		"id":           "raw_take",
+		"name":         "Raw Take",
+		"scaling_stat": "END",
+		"stamina_cost": 10,
+		"types":        ["unarmed", "confidence", "rare"],
+		"steps": [
+			{"name": "Write one opinion without using words like 'maybe', 'perhaps', or 'I think'",
+			                                                            "time": 180, "base_damage": 35, "poise_damage": 15},
+		],
+	},
+
+	"endurance_strike": {
+		"id":           "endurance_strike",
+		"name":         "Endurance Strike",
+		"scaling_stat": "END",
+		"stamina_cost": 30,
+		"types":        ["unarmed", "focus", "rare"],
+		"steps": [
+			{"name": "Write continuously without switching tabs",        "time": 1800, "base_damage": 140, "poise_damage": 50},
+		],
+	},
+
+	"fast_publish": {
+		"id":           "fast_publish",
+		"name":         "Fast Publish",
+		"scaling_stat": "END",
+		"stamina_cost": 25,
+		"types":        ["unarmed", "publishing", "rare"],
+		"steps": [
+			{"name": "Create and publish one short post in under 20 minutes", "time": 1200, "base_damage": 100, "poise_damage": 38},
+		],
 	},
 }
 

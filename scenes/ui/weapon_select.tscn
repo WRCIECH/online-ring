@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://weapon_select"]
+
+[ext_resource type="Script" path="res://scripts/ui/weapon_select_screen.gd" id="weapon_select_script"]
+
+[node name="WeaponSelect" type="Control"]
+script = ExtResource("weapon_select_script")
