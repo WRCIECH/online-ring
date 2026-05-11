@@ -46,6 +46,9 @@ func _compute_positions() -> void:
 # ── Drawing ────────────────────────────────────────────────────────────────────
 
 func _draw() -> void:
+	# Background drawn here so spiral renders on top of it (children draw above _draw())
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.06, 0.05, 0.08))
+
 	var cur := GameManager.run_current_index
 	var n   := _positions.size()
 
@@ -128,10 +131,7 @@ func _build_node_buttons() -> void:
 # ── UI construction ────────────────────────────────────────────────────────────
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.06, 0.05, 0.08)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# (background is drawn in _draw() — using a ColorRect child would cover the spiral)
 
 	# Top bar
 	var top := PanelContainer.new()

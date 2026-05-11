@@ -74,16 +74,17 @@ func _build_ui() -> void:
 	_begin_btn.offset_right  = -490
 	add_child(_begin_btn)
 
-func _build_weapon_card(weapon_id: String) -> Panel:
+func _build_weapon_card(weapon_id: String) -> PanelContainer:
 	var wdata: Dictionary = WeaponDB.WEAPONS.get(weapon_id, {})
 	var wlevel: int  = GameManager.get_weapon_level(weapon_id)
 	var wxp:    float = GameManager.get_weapon_xp(weapon_id)
 	var thres:  float = WeaponDB.xp_for_next_level(wdata, wlevel)
 
-	# Panel (not PanelContainer) so we can stack a Button overlay on top
-	var card := Panel.new()
-	card.custom_minimum_size = Vector2(240, 0)
-	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER  # don't stretch
+	# PanelContainer sizes ALL children to fill itself, so the transparent
+	# Button overlay (added last) sits on top and catches every click.
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(260, 0)
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_style_card(card, false)
 
 	# Content layer
@@ -208,7 +209,7 @@ func _refresh_card_styles() -> void:
 	for wid in _weapon_cards:
 		_style_card(_weapon_cards[wid], _selected_weapons.has(wid))
 
-func _style_card(card: Panel, selected: bool) -> void:
+func _style_card(card: PanelContainer, selected: bool) -> void:
 	var sbox := StyleBoxFlat.new()
 	sbox.set_corner_radius_all(6)
 	if selected:
