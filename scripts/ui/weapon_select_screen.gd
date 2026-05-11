@@ -91,13 +91,13 @@ func _build_weapon_card(weapon_id: String) -> Panel:
 	vbox.add_theme_constant_override("separation", 8)
 	m.add_child(vbox)
 
-	# Weapon picture
+	# Weapon picture — set_weapon() must come after add_child so _ready() has run
 	var visual := WeaponDisplay.new()
 	visual.custom_minimum_size = Vector2(0, 130)
 	visual.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	visual.set_weapon(weapon_id)
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(visual)
+	visual.set_weapon(weapon_id)
 
 	vbox.add_child(HSeparator.new())
 
