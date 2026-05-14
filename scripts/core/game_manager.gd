@@ -14,37 +14,45 @@ var max_fp:      int = 140
 var current_fp:  int = 140
 
 # ── Run state (reset each run) ────────────────────────────────────────────────
+const RUN_DURATION: float = 172800.0   # 48 hours = 2 days
+
+const RUN_ESTUS_MAX: int = 3
+
 var run_active:            bool  = false
 var run_location_sequence: Array = []   # Array of {enemy_id, name, mult}, boss last
 var run_current_index:     int   = 0
 var run_start_time:        float = 0.0
+var run_duration_seconds:  float = RUN_DURATION
+var run_estus_count:       int   = RUN_ESTUS_MAX
 var run_defeated_enemies:  Array[String] = []
 
-# ── Location pool (20 named encounters, shuffled within tiers each run) ───────
+# ── Location pool (25 named encounters, shuffled within tiers each run) ───────
 const LOCATION_POOL: Array = [
-	# Tier 1 — easy
+	# Tier 1 — easy  (indices 0–7)
 	{"enemy_id": "procrastination_mob", "name": "The Endless Feed",          "mult": 1.00},
 	{"enemy_id": "procrastination_mob", "name": "Notification Storm",        "mult": 1.10},
 	{"enemy_id": "hater",               "name": "The First Critic",          "mult": 0.65},
 	{"enemy_id": "procrastination_mob", "name": "The Research Hole",         "mult": 1.20},
 	{"enemy_id": "blank_page_omen",     "name": "The Blank Draft",           "mult": 0.65},
 	{"enemy_id": "hater",               "name": "The Comment Section",       "mult": 0.80},
-	# Tier 2 — medium
+	{"enemy_id": "burnout_shade",       "name": "The Empty Session",         "mult": 1.05},
+	{"enemy_id": "burnout_shade",       "name": "The Can't-Start Day",       "mult": 1.15},
+	# Tier 2 — medium  (indices 8–15)
 	{"enemy_id": "procrastination_mob", "name": "The Planning Loop",         "mult": 1.40},
 	{"enemy_id": "blank_page_omen",     "name": "The First Sentence",        "mult": 0.88},
 	{"enemy_id": "hater",               "name": "The Algorithm Skeptic",     "mult": 1.00},
 	{"enemy_id": "blank_page_omen",     "name": "The Revision Spiral",       "mult": 1.05},
 	{"enemy_id": "procrastination_mob", "name": "The Tomorrow Promise",      "mult": 1.60},
 	{"enemy_id": "hater",               "name": "The Credibility Challenge", "mult": 1.15},
-	{"enemy_id": "blank_page_omen",     "name": "The Scope Creep",           "mult": 1.20},
-	# Tier 3 — hard
+	{"enemy_id": "comparison_engine",   "name": "The Feed Trap",             "mult": 0.90},
+	{"enemy_id": "fear_phantom",        "name": "The Draft You Never Post",  "mult": 0.95},
+	# Tier 3 — hard  (indices 16–20)
 	{"enemy_id": "hater",               "name": "The Imposter Voice",        "mult": 1.30},
 	{"enemy_id": "blank_page_omen",     "name": "The Deleted Draft",         "mult": 1.38},
 	{"enemy_id": "hater",               "name": "The Comparison Trap",       "mult": 1.45},
 	{"enemy_id": "blank_page_omen",     "name": "The Perfectionism Plateau", "mult": 1.55},
-	{"enemy_id": "hater",               "name": "The Last Gatekeeper",       "mult": 1.65},
-	{"enemy_id": "blank_page_omen",     "name": "The Final Blank",           "mult": 1.72},
-	# Boss — always last, never shuffled
+	{"enemy_id": "comparison_engine",   "name": "The Viral Spiral",          "mult": 1.35},
+	# Boss — always last, never shuffled  (index 21)
 	{"enemy_id": "perfectionism_knight","name": "The Perfectionism Tower",   "mult": 1.00},
 ]
 
@@ -55,6 +63,9 @@ var equipped_run_weapons: Array[String] = []        # up to 2, chosen at run sta
 var weapon_xp:           Dictionary    = {}         # weapon_id → float
 var weapon_level:        Dictionary    = {}         # weapon_id → int
 var weapon_extra_movesets: Dictionary  = {}         # weapon_id → Array[String]
+
+# ── Run counter (lifetime, persists across runs) ──────────────────────────────
+var run_count: int = 0
 
 # ── Combat handoff ────────────────────────────────────────────────────────────
 var pending_encounter:   Dictionary = {}
@@ -95,20 +106,23 @@ func start_run(weapons: Array) -> void:
 	equipped_run_weapons = weapons.duplicate()
 	run_active           = true
 	run_current_index    = 0
+	run_count           += 1
 	run_start_time       = Time.get_unix_time_from_system()
+	run_duration_seconds = RUN_DURATION
+	run_estus_count      = RUN_ESTUS_MAX
 	run_defeated_enemies = []
 	current_hp           = max_hp
 	current_stamina      = max_stamina
 	current_fp           = max_fp
 
 	# Shuffle within each difficulty tier; boss is always last
-	var tier1 := LOCATION_POOL.slice(0,  6).duplicate()
-	var tier2 := LOCATION_POOL.slice(6,  13).duplicate()
-	var tier3 := LOCATION_POOL.slice(13, 19).duplicate()
+	var tier1 := LOCATION_POOL.slice(0,  8).duplicate()
+	var tier2 := LOCATION_POOL.slice(8,  16).duplicate()
+	var tier3 := LOCATION_POOL.slice(16, 21).duplicate()
 	tier1.shuffle()
 	tier2.shuffle()
 	tier3.shuffle()
-	run_location_sequence = tier1 + tier2 + tier3 + [LOCATION_POOL[19]]
+	run_location_sequence = tier1 + tier2 + tier3 + [LOCATION_POOL[21]]
 
 func advance_run() -> void:
 	run_current_index += 1
@@ -134,6 +148,12 @@ func run_elapsed_seconds() -> float:
 	if not run_active:
 		return 0.0
 	return Time.get_unix_time_from_system() - run_start_time
+
+func run_remaining_seconds() -> float:
+	return maxf(0.0, run_duration_seconds - run_elapsed_seconds())
+
+func is_run_expired() -> bool:
+	return run_active and run_remaining_seconds() <= 0.0
 
 # ── Weapon XP & levelling ─────────────────────────────────────────────────────
 func add_weapon_xp(weapon_id: String, amount: float) -> bool:
@@ -218,6 +238,9 @@ func get_save_data() -> Dictionary:
 		"current_hp":             current_hp,
 		"current_stamina":        current_stamina,
 		"current_fp":             current_fp,
+		"run_count":              run_count,
+		"run_duration_seconds":   run_duration_seconds,
+		"run_estus_count":        run_estus_count,
 		"run_active":             run_active,
 		"run_location_sequence":  run_location_sequence.duplicate(),
 		"run_current_index":      run_current_index,
@@ -234,6 +257,9 @@ func load_save_data(data: Dictionary) -> void:
 	weapon_xp              = data.get("weapon_xp", {})
 	weapon_level           = data.get("weapon_level", {})
 	weapon_extra_movesets  = data.get("weapon_extra_movesets", {})
+	run_count              = data.get("run_count", 0)
+	run_duration_seconds   = data.get("run_duration_seconds", RUN_DURATION)
+	run_estus_count        = data.get("run_estus_count", RUN_ESTUS_MAX)
 	run_active             = data.get("run_active", false)
 	run_location_sequence.assign(data.get("run_location_sequence", []))
 	run_current_index      = data.get("run_current_index", 0)
@@ -255,6 +281,9 @@ func reset() -> void:
 	weapon_xp              = {}
 	weapon_level           = {}
 	weapon_extra_movesets  = {}
+	run_count              = 0
+	run_duration_seconds   = RUN_DURATION
+	run_estus_count        = RUN_ESTUS_MAX
 	run_active             = false
 	run_location_sequence  = []
 	run_current_index      = 0

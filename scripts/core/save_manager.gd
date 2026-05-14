@@ -1,7 +1,7 @@
 extends Node
 
-const SAVE_PATH   := "user://save_data.json"
-const BACKUP_PATH := "user://save_data_backup.json"
+var SAVE_PATH:   String = "user://save_data_dev.json"        if OS.has_feature("editor") else "user://save_data.json"
+var BACKUP_PATH: String = "user://save_data_backup_dev.json" if OS.has_feature("editor") else "user://save_data_backup.json"
 const CONFIG_PATH := "user://player.cfg"
 
 # Set to true once Railway is deployed and API_BASE_URL is updated.

@@ -112,6 +112,9 @@ func _draw() -> void:
 			"hater":                _hater(cx, H)
 			"blank_page_omen":      _blank_page(cx, H)
 			"perfectionism_knight": _knight(cx, H)
+			"burnout_shade":        _burnout_shade(cx, H)
+			"comparison_engine":    _comparison_engine(cx, H)
+			"fear_phantom":         _fear_phantom(cx, H)
 			_:                      _generic(cx, H)
 
 	# Interactive overlays drawn on top of art
@@ -447,6 +450,151 @@ func _knight(cx: float, H: float) -> void:
 
 	# Accent trim
 	draw_arc(Vector2(cx, H*0.10), H*0.08, PI*0.6, PI*2.4, 20, accent, 1.5)
+
+# ── Burnout Shade ─────────────────────────────────────────────────────────────
+# Hollow, slumped humanoid — faded blue-grey, sunken eyes, smoke wisps
+func _burnout_shade(cx: float, H: float) -> void:
+	var body  := Color(0.28, 0.30, 0.40)
+	var fade  := Color(0.20, 0.22, 0.32)
+	var dark  := Color(0.08, 0.08, 0.14)
+	var smoke := Color(0.40, 0.42, 0.55, 0.45)
+
+	# Slouched torso (narrower than normal, angled slightly)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx-12, H*0.32),
+		Vector2(cx+14, H*0.30),
+		Vector2(cx+16, H*0.70),
+		Vector2(cx-14, H*0.72),
+	]), body)
+
+	# Head (smaller, drooping)
+	draw_circle(Vector2(cx+2, H*0.22), H*0.10, body)
+	draw_circle(Vector2(cx+2, H*0.22), H*0.09, fade)
+
+	# Dark sunken eye sockets
+	draw_circle(Vector2(cx-5,  H*0.20), 6, dark)
+	draw_circle(Vector2(cx+11, H*0.20), 6, dark)
+
+	# Drooping arms
+	draw_line(Vector2(cx-12, H*0.36), Vector2(cx-22, H*0.62), fade, 5.0)
+	draw_line(Vector2(cx+14, H*0.34), Vector2(cx+20, H*0.60), fade, 5.0)
+
+	# Faded legs
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx-12, H*0.70),
+		Vector2(cx-2,  H*0.70),
+		Vector2(cx-4,  H*0.94),
+		Vector2(cx-14, H*0.94),
+	]), fade)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx+2,  H*0.70),
+		Vector2(cx+12, H*0.70),
+		Vector2(cx+10, H*0.94),
+		Vector2(cx,    H*0.94),
+	]), fade)
+
+	# Smoke wisps rising from head
+	for i in range(3):
+		var ox: float = (i - 1) * 8.0
+		draw_line(Vector2(cx + ox, H*0.10), Vector2(cx + ox*1.4, H*0.02), smoke, 1.5)
+
+# ── Comparison Engine ─────────────────────────────────────────────────────────
+# Mechanical multi-eyed entity — steel frame, central glowing iris, smaller satellite eyes
+func _comparison_engine(cx: float, H: float) -> void:
+	var steel := Color(0.38, 0.40, 0.50)
+	var dark  := Color(0.14, 0.15, 0.22)
+	var glow  := Color(0.18, 0.62, 0.90)
+	var ring  := Color(0.28, 0.52, 0.72)
+
+	# Outer hexagonal frame
+	var r_outer := H * 0.30
+	var hex: PackedVector2Array = PackedVector2Array()
+	for i in range(6):
+		var a := i * TAU / 6.0 - PI / 6.0
+		hex.append(Vector2(cx + r_outer * cos(a), H*0.42 + r_outer * sin(a)))
+	draw_colored_polygon(hex, dark)
+	draw_polyline(hex + PackedVector2Array([hex[0]]), steel, 2.5)
+
+	# Central eye — dark sclera + glowing iris
+	draw_circle(Vector2(cx, H*0.42), H*0.16, dark)
+	draw_circle(Vector2(cx, H*0.42), H*0.11, glow)
+	draw_circle(Vector2(cx, H*0.42), H*0.06, dark)
+	draw_circle(Vector2(cx, H*0.42), H*0.025, glow)
+
+	# 6 small satellite eyes on frame vertices
+	for i in range(6):
+		var a := i * TAU / 6.0 - PI / 6.0
+		var ep := Vector2(cx + r_outer * cos(a), H*0.42 + r_outer * sin(a))
+		draw_circle(ep, 5.0, ring)
+		draw_circle(ep, 2.5, glow)
+
+	# Radiating lines from centre (scan lines)
+	for i in range(12):
+		var a := i * TAU / 12.0
+		var ep2 := Vector2(cx + (r_outer+8)*cos(a), H*0.42 + (r_outer+8)*sin(a))
+		draw_line(Vector2(cx, H*0.42), ep2, Color(glow.r, glow.g, glow.b, 0.25), 1.0)
+
+	# Narrow mechanical legs / mount struts
+	draw_line(Vector2(cx-8, H*0.73), Vector2(cx-14, H*0.94), steel, 4.0)
+	draw_line(Vector2(cx+8, H*0.73), Vector2(cx+14, H*0.94), steel, 4.0)
+
+# ── Fear Phantom ──────────────────────────────────────────────────────────────
+# Translucent cowering shape — almost invisible, arms raised, fearful narrow eyes
+func _fear_phantom(cx: float, H: float) -> void:
+	var mist  := Color(0.78, 0.78, 0.90, 0.80)
+	var pale  := Color(0.88, 0.88, 0.96, 0.60)
+	var dark  := Color(0.12, 0.10, 0.20, 0.90)
+
+	# Tall wispy body tapering downward
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx,    H*0.08),
+		Vector2(cx+16, H*0.20),
+		Vector2(cx+18, H*0.48),
+		Vector2(cx+10, H*0.68),
+		Vector2(cx,    H*0.76),
+		Vector2(cx-10, H*0.68),
+		Vector2(cx-18, H*0.48),
+		Vector2(cx-16, H*0.20),
+	]), mist)
+
+	# Inner glow
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx,    H*0.12),
+		Vector2(cx+10, H*0.22),
+		Vector2(cx+10, H*0.46),
+		Vector2(cx,    H*0.54),
+		Vector2(cx-10, H*0.46),
+		Vector2(cx-10, H*0.22),
+	]), pale)
+
+	# Fearful narrow eyes — looking sideways/down
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx-12, H*0.30), Vector2(cx-4,  H*0.28),
+		Vector2(cx-4,  H*0.32), Vector2(cx-12, H*0.34),
+	]), dark)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx+4,  H*0.28), Vector2(cx+12, H*0.30),
+		Vector2(cx+12, H*0.34), Vector2(cx+4,  H*0.32),
+	]), dark)
+
+	# Arms raised to cover / reaching outward
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx-18, H*0.38),
+		Vector2(cx-28, H*0.22),
+		Vector2(cx-32, H*0.24),
+		Vector2(cx-22, H*0.42),
+	]), mist)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(cx+18, H*0.38),
+		Vector2(cx+28, H*0.22),
+		Vector2(cx+32, H*0.24),
+		Vector2(cx+22, H*0.42),
+	]), mist)
+
+	# Fading tendrils (no feet — tapers to nothing)
+	draw_line(Vector2(cx-6,  H*0.74), Vector2(cx-4,  H*0.88), Color(mist.r, mist.g, mist.b, 0.35), 3.0)
+	draw_line(Vector2(cx+6,  H*0.74), Vector2(cx+4,  H*0.88), Color(mist.r, mist.g, mist.b, 0.35), 3.0)
+	draw_line(Vector2(cx,    H*0.76), Vector2(cx,    H*0.90), Color(mist.r, mist.g, mist.b, 0.20), 2.0)
 
 # ── Generic fallback ──────────────────────────────────────────────────────────
 func _generic(cx: float, H: float) -> void:

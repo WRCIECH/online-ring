@@ -63,7 +63,7 @@ func _build_ui() -> void:
 		reward_hdr.add_theme_color_override("font_color", Color(0.55, 0.52, 0.44))
 		vbox.add_child(reward_hdr)
 
-		var ms := MovesetDB.MOVES.get(reward_id, {})
+		var ms: Dictionary = MovesetDB.MOVES.get(reward_id, {})
 		var reward_lbl := Label.new()
 		reward_lbl.text = "New moveset unlocked: %s" % ms.get("name", reward_id)
 		reward_lbl.add_theme_font_size_override("font_size", 15)

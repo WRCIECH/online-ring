@@ -1,7 +1,7 @@
 extends Control
 
-const SAVE_PATH   := "user://save_data.json"
-const BACKUP_PATH := "user://save_data_backup.json"
+var SAVE_PATH:   String = "user://save_data_dev.json"        if OS.has_feature("editor") else "user://save_data.json"
+var BACKUP_PATH: String = "user://save_data_backup_dev.json" if OS.has_feature("editor") else "user://save_data_backup.json"
 
 var _confirm_row: Control
 
@@ -135,8 +135,8 @@ func _on_new_game() -> void:
 func _on_erase_confirmed() -> void:
 	var dir := DirAccess.open("user://")
 	if dir:
-		dir.remove("save_data.json")
-		dir.remove("save_data_backup.json")
+		dir.remove(SAVE_PATH.get_file())
+		dir.remove(BACKUP_PATH.get_file())
 	_go_fresh()
 
 func _go_fresh() -> void:

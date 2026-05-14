@@ -152,6 +152,30 @@ const MOVES: Dictionary = {
 			{"name": "Create and publish one short post in under 20 minutes", "time": 1200, "base_damage": 100, "poise_damage": 38},
 		],
 	},
+
+	# ── Defensive movesets (block / parry) — referenced by weapon_db defense_movesets ──
+
+	"unarmed_block": {
+		"id":           "unarmed_block",
+		"name":         "Focused Foundation",
+		"scaling_stat": "END",
+		"stamina_cost": 20,
+		"types":        ["defense", "block"],
+		"steps": [
+			{"name": "Write 3 words that describe what you are building right now", "time": 25, "base_damage": 0, "poise_damage": 0},
+		],
+	},
+
+	"unarmed_parry": {
+		"id":           "unarmed_parry",
+		"name":         "Precision Counter",
+		"scaling_stat": "END",
+		"stamina_cost": 25,
+		"types":        ["defense", "parry"],
+		"steps": [
+			{"name": "Write one strong opening sentence for your piece", "time": 20, "base_damage": 0, "poise_damage": 5},
+		],
+	},
 }
 
 static func get_moveset(ids: Array) -> Array:

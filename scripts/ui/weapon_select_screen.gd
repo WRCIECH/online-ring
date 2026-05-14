@@ -224,6 +224,7 @@ func _style_card(card: PanelContainer, selected: bool) -> void:
 
 func _on_begin() -> void:
 	GameManager.start_run(_selected_weapons)
+	SaveManager.save_game()
 	get_tree().change_scene_to_file("res://scenes/map/run_map.tscn")
 
 func _margin(parent: Control, px: int) -> MarginContainer:

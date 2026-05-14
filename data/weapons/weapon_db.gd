@@ -16,6 +16,7 @@ const WEAPONS := {
 		"constant_movesets": ["starter_chain", "no_backspace"],
 		"moveset_slots":     1,
 		"xp_thresholds":    [100, 300, 700, 1500],
+		"defense_movesets":  {"block": "unarmed_block", "parry": "unarmed_parry"},
 	},
 }
 

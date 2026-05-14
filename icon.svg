@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="256" height="256" rx="38" fill="#100d16"/>
+
+  <!-- Ambient ring glow -->
+  <circle cx="128" cy="128" r="88" fill="none" stroke="#e6bf33" stroke-width="22" opacity="0.07"/>
+
+  <!-- Hexagram connection lines (network / online topology) -->
+  <line x1="216" y1="128" x2="40"  y2="128" stroke="#7a5fd0" stroke-width="1.5" opacity="0.45"/>
+  <line x1="172" y1="204" x2="84"  y2="52"  stroke="#7a5fd0" stroke-width="1.5" opacity="0.45"/>
+  <line x1="84"  y1="204" x2="172" y2="52"  stroke="#7a5fd0" stroke-width="1.5" opacity="0.45"/>
+
+  <!-- Main golden ring -->
+  <circle cx="128" cy="128" r="88" fill="none" stroke="#e6bf33" stroke-width="5.5" filter="url(#glow)"/>
+
+  <!-- Six nodes at 60° intervals -->
+  <circle cx="216" cy="128" r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+  <circle cx="172" cy="204" r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+  <circle cx="84"  cy="204" r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+  <circle cx="40"  cy="128" r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+  <circle cx="84"  cy="52"  r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+  <circle cx="172" cy="52"  r="6.5" fill="#e6bf33" filter="url(#glow)"/>
+
+  <!-- Centre point -->
+  <circle cx="128" cy="128" r="10"  fill="#e6bf33" opacity="0.15" filter="url(#softglow)"/>
+  <circle cx="128" cy="128" r="4.5" fill="#fffbe8"/>
+
+  <!-- Online status dot (upper-right corner) -->
+  <circle cx="210" cy="46" r="11" fill="#0f1a10"/>
+  <circle cx="210" cy="46" r="8"  fill="#3db84a" filter="url(#glow)"/>
+  <circle cx="210" cy="46" r="4"  fill="#7ef08a"/>
+</svg>
