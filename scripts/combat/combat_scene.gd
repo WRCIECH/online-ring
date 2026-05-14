@@ -335,6 +335,7 @@ func _on_step_clicked(step: Dictionary, moveset: Dictionary, weapon_id: String) 
 	_timer_confirm_box.visible   = false
 
 	_load_notes_to_timer()
+	_timer_notes_edit.editable = false
 	_timer_layer.show()
 	_step_panel.visible = false
 	_phase = Phase.STEP_TIMER
@@ -355,6 +356,8 @@ func _start_step() -> void:
 	_timer_done_btn.visible    = true
 	_timer_back_btn.visible    = true
 	_timer_confirm_box.visible = false
+	_timer_notes_edit.editable = true
+	_timer_notes_edit.placeholder_text = "Write your response here…"
 	_timer_notes_edit.grab_focus()
 
 func _cancel_step() -> void:
@@ -412,6 +415,7 @@ func _save_notes_from_timer() -> void:
 
 func _on_timer_expired() -> void:
 	_step_started = false
+	_timer_notes_edit.editable = false
 	SoundManager.play(SoundManager.Sound.TIMER_DONE)
 	_timer_header_lbl.text = "TIME'S UP!"
 	_timer_header_lbl.add_theme_color_override("font_color", Color(0.95, 0.80, 0.20))
@@ -681,6 +685,7 @@ func _show_defense_timer(task: Dictionary, action: String) -> void:
 	_timer_confirm_box.visible = false
 
 	_load_notes_to_timer()
+	_timer_notes_edit.editable = false
 	_timer_layer.show()
 	_phase = Phase.STEP_TIMER
 
@@ -1276,7 +1281,7 @@ func _build_step_timer_overlay() -> void:
 	_timer_notes_edit.custom_minimum_size = Vector2(0, 190)
 	_timer_notes_edit.wrap_mode           = TextEdit.LINE_WRAPPING_BOUNDARY
 	_timer_notes_edit.add_theme_font_size_override("font_size", 14)
-	_timer_notes_edit.placeholder_text    = "Write your response here…"
+	_timer_notes_edit.placeholder_text    = "Start the task to begin writing…"
 	vbox.add_child(_timer_notes_edit)
 
 	_timer_time_lbl = Label.new()
