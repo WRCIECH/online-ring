@@ -24,8 +24,19 @@ func _process(delta: float) -> void:
 			_save()
 
 func show_notepad() -> void:
+	if _save_timer > 0.0:
+		_save()
+	if FileAccess.file_exists(NOTES_PATH):
+		var f := FileAccess.open(NOTES_PATH, FileAccess.READ)
+		if f:
+			_text_edit.text = f.get_as_text()
+			f.close()
 	show()
 	_text_edit.grab_focus()
+
+func _exit_tree() -> void:
+	if _save_timer > 0.0:
+		_save()
 
 func _build_ui() -> void:
 	var dim := ColorRect.new()
