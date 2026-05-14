@@ -16,9 +16,9 @@ const MOVES: Dictionary = {
 		"stamina_cost": 10,
 		"types":        ["unarmed", "starter", "daily"],
 		"steps": [
-			{"name": "Write continuously for 5 minutes",               "time": 300, "base_damage": 40, "poise_damage": 16},
-			{"name": "Write one sentence summarising what you wrote",   "time":  60, "base_damage": 15, "poise_damage":  6},
-			{"name": "Write one concrete example related to it",        "time":  90, "base_damage": 18, "poise_damage":  7},
+			{"name": "Write continuously for 5 minutes",                               "time": 300, "base_damage": 40, "poise_damage": 16},
+			{"name": "Write a summary paragraph of what you just wrote",               "time": 180, "base_damage": 28, "poise_damage": 12},
+			{"name": "Expand your summary with one fully developed concrete example",   "time": 180, "base_damage": 28, "poise_damage": 12},
 		],
 	},
 
@@ -42,8 +42,8 @@ const MOVES: Dictionary = {
 		"stamina_cost": 5,
 		"types":        ["unarmed", "anti_hesitation", "daily"],
 		"steps": [
-			{"name": "Open document and write first sentence within 10 seconds", "time":  10, "base_damage":  8, "poise_damage":  4},
-			{"name": "Continue writing for 2 minutes",                           "time": 120, "base_damage": 22, "poise_damage":  9},
+			{"name": "Write your opening paragraph — no stopping, no editing", "time": 180, "base_damage": 28, "poise_damage": 10},
+			{"name": "Continue writing the next paragraph immediately",         "time": 120, "base_damage": 22, "poise_damage":  9},
 		],
 	},
 
@@ -54,8 +54,8 @@ const MOVES: Dictionary = {
 		"stamina_cost": 8,
 		"types":        ["unarmed", "opinion", "daily"],
 		"steps": [
-			{"name": "Write one opinion in a single sentence",  "time":  60, "base_damage": 15, "poise_damage":  6},
-			{"name": "Write one sentence defending it",         "time": 120, "base_damage": 22, "poise_damage":  9},
+			{"name": "State your opinion and write the full reasoning behind it",           "time": 180, "base_damage": 28, "poise_damage": 12},
+			{"name": "Write a full paragraph defending your opinion with a specific example", "time": 120, "base_damage": 22, "poise_damage":  9},
 		],
 	},
 
@@ -112,8 +112,8 @@ const MOVES: Dictionary = {
 		"stamina_cost": 5,
 		"types":        ["unarmed", "recovery", "daily"],
 		"steps": [
-			{"name": "Return to your document after distraction",       "time":  30, "base_damage": 10, "poise_damage":  4},
-			{"name": "Write for 2 more minutes",                        "time": 120, "base_damage": 22, "poise_damage":  9},
+			{"name": "Write 2-3 sentences recapping where you left off before the distraction", "time": 120, "base_damage": 22, "poise_damage":  9},
+			{"name": "Continue writing from that point for 2 more minutes",                     "time": 120, "base_damage": 22, "poise_damage":  9},
 		],
 	},
 
