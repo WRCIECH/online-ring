@@ -91,9 +91,12 @@ var _timer_notes_edit: TextEdit   # writing area embedded in timer
 var _timer_time_lbl:   Label
 var _timer_bar:        ProgressBar
 var _timer_hint_lbl:   Label
-var _timer_start_btn:  Button
-var _timer_done_btn:   Button
-var _timer_back_btn:   Button
+var _timer_start_btn:    Button
+var _timer_done_btn:     Button
+var _timer_back_btn:     Button
+var _timer_confirm_box:  HBoxContainer
+var _timer_yes_btn:      Button
+var _timer_no_btn:       Button
 
 # Notepad
 var _notepad: NotepadOverlay
@@ -130,10 +133,7 @@ func _process(delta: float) -> void:
 		_timer_time_lbl.text = _fmt_time(ceili(_step_timer))
 		_timer_bar.value = 1.0 - (_step_timer / _step_total)
 		if _step_timer <= 0.0:
-			if _timer_is_defense:
-				_defense_timer_expired()   # missed deadline = full damage
-			else:
-				_execute_step()            # attack duration complete = success
+			_on_timer_expired()
 	if _victory_layer != null and _victory_layer.visible and _victory_hint_lbl.visible:
 		_victory_hint_lbl.modulate.a = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.003)
 
@@ -299,6 +299,17 @@ func _show_step_buttons() -> void:
 		)
 		_step_list.add_child(btn)
 
+	_step_list.add_child(HSeparator.new())
+	var end_btn := Button.new()
+	end_btn.text = "End Turn"
+	end_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	end_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	end_btn.custom_minimum_size = Vector2(0, 46)
+	end_btn.add_theme_font_size_override("font_size", 14)
+	end_btn.add_theme_color_override("font_color", Color(0.70, 0.55, 0.30))
+	end_btn.pressed.connect(_end_player_turn)
+	_step_list.add_child(end_btn)
+
 # ── Step timer ────────────────────────────────────────────────────────────────
 
 func _on_step_clicked(step: Dictionary, moveset: Dictionary, weapon_id: String) -> void:
@@ -320,6 +331,8 @@ func _on_step_clicked(step: Dictionary, moveset: Dictionary, weapon_id: String) 
 	_timer_start_btn.visible     = true
 	_timer_done_btn.visible      = false
 	_timer_back_btn.text         = "Back"
+	_timer_back_btn.visible      = true
+	_timer_confirm_box.visible   = false
 
 	_load_notes_to_timer()
 	_timer_layer.show()
@@ -336,10 +349,12 @@ func _start_step() -> void:
 		_timer_header_lbl.text = "TASK IN PROGRESS"
 		_timer_header_lbl.add_theme_color_override("font_color", Color(0.90, 0.75, 0.20))
 		_timer_back_btn.text = "Back  (costs stamina)"
-	_timer_bar.visible       = true
-	_timer_hint_lbl.visible  = true
-	_timer_start_btn.visible = false
-	_timer_done_btn.visible  = true
+	_timer_bar.visible         = true
+	_timer_hint_lbl.visible    = true
+	_timer_start_btn.visible   = false
+	_timer_done_btn.visible    = true
+	_timer_back_btn.visible    = true
+	_timer_confirm_box.visible = false
 	_timer_notes_edit.grab_focus()
 
 func _cancel_step() -> void:
@@ -357,6 +372,8 @@ func _cancel_step() -> void:
 			_update_player_bars()
 			SoundManager.play(SoundManager.Sound.HIT)
 			_log_add("You gave up defending — full damage taken!", Color(0.9, 0.25, 0.2))
+			_player_stamina = GameManager.max_stamina
+			_update_player_bars()
 			if _player_hp <= 0:
 				_enter_phase(Phase.DEFEAT)
 				return
@@ -392,6 +409,31 @@ func _save_notes_from_timer() -> void:
 	if f:
 		f.store_string(_timer_notes_edit.text)
 		f.close()
+
+func _on_timer_expired() -> void:
+	_step_started = false
+	SoundManager.play(SoundManager.Sound.TIMER_DONE)
+	_timer_header_lbl.text = "TIME'S UP!"
+	_timer_header_lbl.add_theme_color_override("font_color", Color(0.95, 0.80, 0.20))
+	_timer_hint_lbl.text    = "Did you complete the task?"
+	_timer_hint_lbl.visible = true
+	_timer_done_btn.visible    = false
+	_timer_back_btn.visible    = false
+	_timer_confirm_box.visible = true
+
+func _on_timer_failed() -> void:
+	if _timer_is_defense:
+		_defense_timer_expired()
+	else:
+		_save_notes_from_timer()
+		var sta_cost: int = _pending_moveset.get("stamina_cost", 5)
+		_player_stamina = maxi(_player_stamina - sta_cost, 0)
+		_update_player_bars()
+		_log_add("Task failed — stamina drained.", Color(0.80, 0.40, 0.20))
+		_timer_layer.hide()
+		_phase = Phase.PLAYER_ATTACK
+		_step_panel.visible = true
+		_show_step_buttons()
 
 func _execute_step() -> void:
 	_save_notes_from_timer()
@@ -451,6 +493,33 @@ func _execute_step() -> void:
 		_enter_phase(Phase.ENEMY_STAGGERED)
 		return
 
+	# Auto-end turn if no move is affordable
+	if not _any_move_affordable():
+		_log_add("Stamina exhausted — enemy seizes the moment.", Color(0.75, 0.55, 0.20))
+		_enter_phase(Phase.ENEMY_ATTACK)
+		return
+
+	# Enemy interrupt — only when NOT mid-chain
+	if _chain_moveset_id == "":
+		var chance: float = float(_enemy.get("initiative", 5)) / 20.0
+		if randf() < chance:
+			_log_add("The %s interrupts!" % _enemy.name, Color(0.90, 0.35, 0.20))
+			_enter_phase(Phase.ENEMY_ATTACK)
+			return
+
+	_enter_phase(Phase.PLAYER_ATTACK)
+
+func _any_move_affordable() -> bool:
+	var equipped: Array = GameManager.equipped_run_weapons
+	for wid in equipped:
+		var wdata: Dictionary = WeaponDB.WEAPONS.get(wid, {})
+		var extra_ids: Array  = GameManager.get_weapon_extra_movesets(wid)
+		for moveset in WeaponDB.get_moveset(wdata, extra_ids):
+			if _player_stamina >= moveset.get("stamina_cost", 5):
+				return true
+	return false
+
+func _end_player_turn() -> void:
 	_enter_phase(Phase.ENEMY_ATTACK)
 
 # ── Enemy attack phase ────────────────────────────────────────────────────────
@@ -608,6 +677,8 @@ func _show_defense_timer(task: Dictionary, action: String) -> void:
 	_timer_start_btn.visible   = true
 	_timer_done_btn.visible    = false
 	_timer_back_btn.text       = "Give up  (take full damage)"
+	_timer_back_btn.visible    = true
+	_timer_confirm_box.visible = false
 
 	_load_notes_to_timer()
 	_timer_layer.show()
@@ -633,6 +704,8 @@ func _defense_timer_expired() -> void:
 		_update_player_bars()
 		SoundManager.play(SoundManager.Sound.HIT)
 		_log_add("Defense task missed — %d damage taken!" % dmg, Color(0.9, 0.25, 0.2))
+	_player_stamina = GameManager.max_stamina
+	_update_player_bars()
 	if _player_hp <= 0:
 		_enter_phase(Phase.DEFEAT)
 	else:
@@ -681,7 +754,7 @@ func _resolve_defense() -> void:
 					_enter_phase(Phase.ENEMY_STAGGERED)
 					return
 
-	_player_stamina = maxi(_player_stamina, 0)
+	_player_stamina = GameManager.max_stamina
 	_player_hp      = maxi(_player_hp, 0)
 	_update_player_bars()
 	if _player_hp <= 0:
@@ -704,7 +777,7 @@ func _apply_defense_instant(action: String) -> void:
 			await get_tree().create_timer(1.0).timeout
 			get_tree().change_scene_to_file("res://scenes/ui/weapon_select.tscn")
 			return
-	_player_stamina = maxi(_player_stamina, 0)
+	_player_stamina = GameManager.max_stamina
 	_player_hp      = maxi(_player_hp, 0)
 	_update_player_bars()
 	if _player_hp <= 0:
@@ -1260,6 +1333,31 @@ func _build_step_timer_overlay() -> void:
 	_timer_back_btn.custom_minimum_size = Vector2(120, 28)
 	_timer_back_btn.pressed.connect(_cancel_step)
 	back_center.add_child(_timer_back_btn)
+
+	# Confirm box — shown only when timer hits 0
+	var confirm_center := CenterContainer.new()
+	vbox.add_child(confirm_center)
+
+	_timer_confirm_box = HBoxContainer.new()
+	_timer_confirm_box.add_theme_constant_override("separation", 20)
+	_timer_confirm_box.visible = false
+	confirm_center.add_child(_timer_confirm_box)
+
+	_timer_yes_btn = Button.new()
+	_timer_yes_btn.text = "Yes, I did it!"
+	_timer_yes_btn.custom_minimum_size = Vector2(180, 56)
+	_timer_yes_btn.add_theme_font_size_override("font_size", 16)
+	_timer_yes_btn.add_theme_color_override("font_color", Color(0.40, 0.90, 0.40))
+	_timer_yes_btn.pressed.connect(_execute_step)
+	_timer_confirm_box.add_child(_timer_yes_btn)
+
+	_timer_no_btn = Button.new()
+	_timer_no_btn.text = "No, I failed"
+	_timer_no_btn.custom_minimum_size = Vector2(180, 56)
+	_timer_no_btn.add_theme_font_size_override("font_size", 16)
+	_timer_no_btn.add_theme_color_override("font_color", Color(0.90, 0.35, 0.25))
+	_timer_no_btn.pressed.connect(_on_timer_failed)
+	_timer_confirm_box.add_child(_timer_no_btn)
 
 # ── Equipment overlay ─────────────────────────────────────────────────────────
 

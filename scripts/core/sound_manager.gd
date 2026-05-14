@@ -18,6 +18,7 @@ enum Sound {
 	SITE_OF_GRACE,
 	RUNE_GAIN,
 	LOOT_DROP,
+	TIMER_DONE,
 }
 
 const SAMPLE_RATE := 22050
@@ -70,6 +71,7 @@ func _generate_sounds() -> void:
 	_streams[Sound.SITE_OF_GRACE] = _tone(528.0,  0.80, 0.40)
 	_streams[Sound.RUNE_GAIN]     = _arpeggio([880, 1109, 1318],           0.07, 0.40)
 	_streams[Sound.LOOT_DROP]     = _arpeggio([660, 831, 1047],            0.11, 0.45)
+	_streams[Sound.TIMER_DONE]    = _arpeggio([784, 784, 784],             0.12, 0.55)
 
 # ── Synthesis helpers ─────────────────────────────────────────────────────────
 
